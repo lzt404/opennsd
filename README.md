@@ -1,4 +1,4 @@
-### open network system device（开源网络系统设备）
+### open network system device（opennsd开源网络系统设备）
 
 这是一个开源网络系统设备实验平台
 旨在构建一个低成本的,易上手的网络实验系统,内容包括手写tcp/ip协议栈,交换算法,路由算法的实现。
