@@ -1,0 +1,14 @@
+{
+    "cortex-debug.liveWatchRefreshRate": 1000,
+    "cortex-debug.armToolchainPath": "",
+    "cortex-debug.openocdPath": "",
+    "cortex-debug.variableUseNaturalFormat": true,
+    "files.associations": {
+        "main.h": "c",
+        "stm32wlxx_hal.h": "c",
+        "typeinfo": "cpp",
+        "ch390.h": "c",
+        "spi.h": "c",
+        "type_traits": "c"
+    },
+}

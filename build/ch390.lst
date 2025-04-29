@@ -1,0 +1,1818 @@
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 1
+
+
+   1              		.cpu cortex-m4
+   2              		.arch armv7e-m
+   3              		.fpu fpv4-sp-d16
+   4              		.eabi_attribute 27, 1
+   5              		.eabi_attribute 28, 1
+   6              		.eabi_attribute 20, 1
+   7              		.eabi_attribute 21, 1
+   8              		.eabi_attribute 23, 3
+   9              		.eabi_attribute 24, 1
+  10              		.eabi_attribute 25, 1
+  11              		.eabi_attribute 26, 1
+  12              		.eabi_attribute 30, 1
+  13              		.eabi_attribute 34, 1
+  14              		.eabi_attribute 18, 4
+  15              		.file	"ch390.c"
+  16              		.text
+  17              	.Ltext0:
+  18              		.cfi_sections	.debug_frame
+  19              		.file 1 "Bsp/Src/ch390.c"
+  20              		.section	.text.ch390_spi_exchange_byte,"ax",%progbits
+  21              		.align	1
+  22              		.syntax unified
+  23              		.thumb
+  24              		.thumb_func
+  26              	ch390_spi_exchange_byte:
+  27              	.LVL0:
+  28              	.LFB139:
+   1:Bsp/Src/ch390.c **** #include "ch390.h"
+   2:Bsp/Src/ch390.c **** 
+   3:Bsp/Src/ch390.c **** /**
+   4:Bsp/Src/ch390.c ****  * @name ch390_get_link_status
+   5:Bsp/Src/ch390.c ****  * @brief Get link status of the internal PHY
+   6:Bsp/Src/ch390.c ****  * @return 0: Link failed  1: Link OK
+   7:Bsp/Src/ch390.c ****  */
+   8:Bsp/Src/ch390.c **** int ch390_get_link_status()
+   9:Bsp/Src/ch390.c **** {
+  10:Bsp/Src/ch390.c ****     uint8_t nsr = ch390_read_reg(CH390_NSR);
+  11:Bsp/Src/ch390.c ****     return !!(nsr & NSR_LINKST);
+  12:Bsp/Src/ch390.c **** }
+  13:Bsp/Src/ch390.c **** 
+  14:Bsp/Src/ch390.c **** /**
+  15:Bsp/Src/ch390.c ****  * @name ch390_get_int_status
+  16:Bsp/Src/ch390.c ****  * @brief Get CH390 interrupt status and clear them
+  17:Bsp/Src/ch390.c ****  * @return Interrupt status
+  18:Bsp/Src/ch390.c ****  */
+  19:Bsp/Src/ch390.c **** uint8_t ch390_get_int_status()
+  20:Bsp/Src/ch390.c **** {
+  21:Bsp/Src/ch390.c ****     uint8_t int_status = ch390_read_reg(CH390_ISR);
+  22:Bsp/Src/ch390.c ****     // Clear interrupt status by write 1
+  23:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_ISR, int_status);
+  24:Bsp/Src/ch390.c ****     return int_status;
+  25:Bsp/Src/ch390.c **** }
+  26:Bsp/Src/ch390.c **** 
+  27:Bsp/Src/ch390.c **** /**
+  28:Bsp/Src/ch390.c ****  * @name ch390_write_reg
+  29:Bsp/Src/ch390.c ****  * @brief Write register (HAL库版本)
+  30:Bsp/Src/ch390.c ****  * @param reg - Target register address
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 2
+
+
+  31:Bsp/Src/ch390.c ****  * @param value - Value to be written
+  32:Bsp/Src/ch390.c ****  */
+  33:Bsp/Src/ch390.c **** void ch390_write_reg(uint8_t reg, uint8_t value)
+  34:Bsp/Src/ch390.c **** {
+  35:Bsp/Src/ch390.c ****     uint8_t buf[2];
+  36:Bsp/Src/ch390.c ****     buf[0] = reg | OPC_REG_W;
+  37:Bsp/Src/ch390.c ****     buf[1] = value;
+  38:Bsp/Src/ch390.c **** 
+  39:Bsp/Src/ch390.c ****     ch390_cs(0); // CS = 0
+  40:Bsp/Src/ch390.c ****     HAL_SPI_Transmit(&hspi2, buf, 2, 200);
+  41:Bsp/Src/ch390.c ****     ch390_cs(1); // CS = 1
+  42:Bsp/Src/ch390.c **** }
+  43:Bsp/Src/ch390.c **** 
+  44:Bsp/Src/ch390.c **** void ch390_delay_us(uint32_t us)
+  45:Bsp/Src/ch390.c **** {
+  46:Bsp/Src/ch390.c ****     uint32_t start = DWT->CYCCNT;
+  47:Bsp/Src/ch390.c ****     uint32_t ticks = us * (SystemCoreClock / 1000000);
+  48:Bsp/Src/ch390.c ****     while ((DWT->CYCCNT - start) < ticks);
+  49:Bsp/Src/ch390.c **** }
+  50:Bsp/Src/ch390.c **** 
+  51:Bsp/Src/ch390.c **** /**
+  52:Bsp/Src/ch390.c ****  * @name ch390_software_reset
+  53:Bsp/Src/ch390.c ****  * @brief Software reset CH390 by NCR
+  54:Bsp/Src/ch390.c ****  */
+  55:Bsp/Src/ch390.c **** void ch390_software_reset()
+  56:Bsp/Src/ch390.c **** {
+  57:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_NCR, NCR_RST);
+  58:Bsp/Src/ch390.c ****     ch390_delay_us(10);
+  59:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_NCR, 0);
+  60:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_NCR, NCR_RST);
+  61:Bsp/Src/ch390.c ****     ch390_delay_us(10);
+  62:Bsp/Src/ch390.c **** }
+  63:Bsp/Src/ch390.c **** 
+  64:Bsp/Src/ch390.c **** // PHY registers
+  65:Bsp/Src/ch390.c **** #define CH390_PHY          0x40
+  66:Bsp/Src/ch390.c **** #define CH390_PHY_BMCR     0x00
+  67:Bsp/Src/ch390.c **** #define CH390_PHY_BMSR     0x01
+  68:Bsp/Src/ch390.c **** #define CH390_PHY_PHYID1   0x02
+  69:Bsp/Src/ch390.c **** #define CH390_PHY_PHYID2   0x03
+  70:Bsp/Src/ch390.c **** #define CH390_PHY_ANAR     0x04
+  71:Bsp/Src/ch390.c **** #define CH390_PHY_ANLPAR   0x05
+  72:Bsp/Src/ch390.c **** #define CH390_PHY_ANER     0x06
+  73:Bsp/Src/ch390.c **** #define CH390_PHY_PAGE_SEL 0x1F
+  74:Bsp/Src/ch390.c **** 
+  75:Bsp/Src/ch390.c **** // Packet status
+  76:Bsp/Src/ch390.c **** #define CH390_PKT_NONE  0x00    /* No packet received */
+  77:Bsp/Src/ch390.c **** #define CH390_PKT_RDY   0x01    /* Packet ready to receive */
+  78:Bsp/Src/ch390.c **** #define CH390_PKT_ERR   0xFE    /* Un-stable states */
+  79:Bsp/Src/ch390.c **** #define CH390_PKT_MAX   1536    /* Received packet max size */
+  80:Bsp/Src/ch390.c **** #define CH390_PKT_MIN   64
+  81:Bsp/Src/ch390.c **** 
+  82:Bsp/Src/ch390.c **** static uint8_t ch390_spi_exchange_byte(uint8_t byte)
+  83:Bsp/Src/ch390.c **** {
+  29              		.loc 1 83 1 view -0
+  30              		.cfi_startproc
+  31              		@ args = 0, pretend = 0, frame = 16
+  32              		@ frame_needed = 0, uses_anonymous_args = 0
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 3
+
+
+  33              		.loc 1 83 1 is_stmt 0 view .LVU1
+  34 0000 00B5     		push	{lr}
+  35              	.LCFI0:
+  36              		.cfi_def_cfa_offset 4
+  37              		.cfi_offset 14, -4
+  38 0002 87B0     		sub	sp, sp, #28
+  39              	.LCFI1:
+  40              		.cfi_def_cfa_offset 32
+  41 0004 8DF80F00 		strb	r0, [sp, #15]
+  84:Bsp/Src/ch390.c ****     uint8_t rx = 0;
+  42              		.loc 1 84 5 is_stmt 1 view .LVU2
+  43              		.loc 1 84 13 is_stmt 0 view .LVU3
+  44 0008 0023     		movs	r3, #0
+  45 000a 8DF81730 		strb	r3, [sp, #23]
+  85:Bsp/Src/ch390.c ****     HAL_SPI_TransmitReceive(&hspi2, &byte, &rx, 1,200);
+  46              		.loc 1 85 5 is_stmt 1 view .LVU4
+  47 000e C823     		movs	r3, #200
+  48 0010 0093     		str	r3, [sp]
+  49 0012 0123     		movs	r3, #1
+  50 0014 0DF11702 		add	r2, sp, #23
+  51 0018 0DF10F01 		add	r1, sp, #15
+  52 001c 0348     		ldr	r0, .L3
+  53              	.LVL1:
+  54              		.loc 1 85 5 is_stmt 0 view .LVU5
+  55 001e FFF7FEFF 		bl	HAL_SPI_TransmitReceive
+  56              	.LVL2:
+  86:Bsp/Src/ch390.c ****     return rx;
+  57              		.loc 1 86 5 is_stmt 1 view .LVU6
+  87:Bsp/Src/ch390.c **** }
+  58              		.loc 1 87 1 is_stmt 0 view .LVU7
+  59 0022 9DF81700 		ldrb	r0, [sp, #23]	@ zero_extendqisi2
+  60 0026 07B0     		add	sp, sp, #28
+  61              	.LCFI2:
+  62              		.cfi_def_cfa_offset 4
+  63              		@ sp needed
+  64 0028 5DF804FB 		ldr	pc, [sp], #4
+  65              	.L4:
+  66              		.align	2
+  67              	.L3:
+  68 002c 00000000 		.word	hspi2
+  69              		.cfi_endproc
+  70              	.LFE139:
+  72              		.section	.text.ch390_write_reg,"ax",%progbits
+  73              		.align	1
+  74              		.global	ch390_write_reg
+  75              		.syntax unified
+  76              		.thumb
+  77              		.thumb_func
+  79              	ch390_write_reg:
+  80              	.LVL3:
+  81              	.LFB136:
+  34:Bsp/Src/ch390.c ****     uint8_t buf[2];
+  82              		.loc 1 34 1 is_stmt 1 view -0
+  83              		.cfi_startproc
+  84              		@ args = 0, pretend = 0, frame = 8
+  85              		@ frame_needed = 0, uses_anonymous_args = 0
+  34:Bsp/Src/ch390.c ****     uint8_t buf[2];
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 4
+
+
+  86              		.loc 1 34 1 is_stmt 0 view .LVU9
+  87 0000 10B5     		push	{r4, lr}
+  88              	.LCFI3:
+  89              		.cfi_def_cfa_offset 8
+  90              		.cfi_offset 4, -8
+  91              		.cfi_offset 14, -4
+  92 0002 82B0     		sub	sp, sp, #8
+  93              	.LCFI4:
+  94              		.cfi_def_cfa_offset 16
+  35:Bsp/Src/ch390.c ****     buf[0] = reg | OPC_REG_W;
+  95              		.loc 1 35 5 is_stmt 1 view .LVU10
+  36:Bsp/Src/ch390.c ****     buf[1] = value;
+  96              		.loc 1 36 5 view .LVU11
+  36:Bsp/Src/ch390.c ****     buf[1] = value;
+  97              		.loc 1 36 12 is_stmt 0 view .LVU12
+  98 0004 60F07F00 		orn	r0, r0, #127
+  99              	.LVL4:
+  36:Bsp/Src/ch390.c ****     buf[1] = value;
+ 100              		.loc 1 36 12 view .LVU13
+ 101 0008 8DF80400 		strb	r0, [sp, #4]
+  37:Bsp/Src/ch390.c **** 
+ 102              		.loc 1 37 5 is_stmt 1 view .LVU14
+  37:Bsp/Src/ch390.c **** 
+ 103              		.loc 1 37 12 is_stmt 0 view .LVU15
+ 104 000c 8DF80510 		strb	r1, [sp, #5]
+  39:Bsp/Src/ch390.c ****     HAL_SPI_Transmit(&hspi2, buf, 2, 200);
+ 105              		.loc 1 39 5 is_stmt 1 view .LVU16
+ 106 0010 0A4C     		ldr	r4, .L7
+ 107 0012 0022     		movs	r2, #0
+ 108 0014 4FF40061 		mov	r1, #2048
+ 109              	.LVL5:
+  39:Bsp/Src/ch390.c ****     HAL_SPI_Transmit(&hspi2, buf, 2, 200);
+ 110              		.loc 1 39 5 is_stmt 0 view .LVU17
+ 111 0018 2046     		mov	r0, r4
+ 112 001a FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 113              	.LVL6:
+  40:Bsp/Src/ch390.c ****     ch390_cs(1); // CS = 1
+ 114              		.loc 1 40 5 is_stmt 1 view .LVU18
+ 115 001e C823     		movs	r3, #200
+ 116 0020 0222     		movs	r2, #2
+ 117 0022 01A9     		add	r1, sp, #4
+ 118 0024 0648     		ldr	r0, .L7+4
+ 119 0026 FFF7FEFF 		bl	HAL_SPI_Transmit
+ 120              	.LVL7:
+  41:Bsp/Src/ch390.c **** }
+ 121              		.loc 1 41 5 view .LVU19
+ 122 002a 0122     		movs	r2, #1
+ 123 002c 4FF40061 		mov	r1, #2048
+ 124 0030 2046     		mov	r0, r4
+ 125 0032 FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 126              	.LVL8:
+  42:Bsp/Src/ch390.c **** 
+ 127              		.loc 1 42 1 is_stmt 0 view .LVU20
+ 128 0036 02B0     		add	sp, sp, #8
+ 129              	.LCFI5:
+ 130              		.cfi_def_cfa_offset 8
+ 131              		@ sp needed
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 5
+
+
+ 132 0038 10BD     		pop	{r4, pc}
+ 133              	.L8:
+ 134 003a 00BF     		.align	2
+ 135              	.L7:
+ 136 003c 000C0240 		.word	1073875968
+ 137 0040 00000000 		.word	hspi2
+ 138              		.cfi_endproc
+ 139              	.LFE136:
+ 141              		.section	.text.ch390_delay_us,"ax",%progbits
+ 142              		.align	1
+ 143              		.global	ch390_delay_us
+ 144              		.syntax unified
+ 145              		.thumb
+ 146              		.thumb_func
+ 148              	ch390_delay_us:
+ 149              	.LVL9:
+ 150              	.LFB137:
+  45:Bsp/Src/ch390.c ****     uint32_t start = DWT->CYCCNT;
+ 151              		.loc 1 45 1 is_stmt 1 view -0
+ 152              		.cfi_startproc
+ 153              		@ args = 0, pretend = 0, frame = 0
+ 154              		@ frame_needed = 0, uses_anonymous_args = 0
+ 155              		@ link register save eliminated.
+  46:Bsp/Src/ch390.c ****     uint32_t ticks = us * (SystemCoreClock / 1000000);
+ 156              		.loc 1 46 5 view .LVU22
+  46:Bsp/Src/ch390.c ****     uint32_t ticks = us * (SystemCoreClock / 1000000);
+ 157              		.loc 1 46 14 is_stmt 0 view .LVU23
+ 158 0000 074B     		ldr	r3, .L11
+ 159 0002 5A68     		ldr	r2, [r3, #4]
+ 160              	.LVL10:
+  47:Bsp/Src/ch390.c ****     while ((DWT->CYCCNT - start) < ticks);
+ 161              		.loc 1 47 5 is_stmt 1 view .LVU24
+  47:Bsp/Src/ch390.c ****     while ((DWT->CYCCNT - start) < ticks);
+ 162              		.loc 1 47 44 is_stmt 0 view .LVU25
+ 163 0004 074B     		ldr	r3, .L11+4
+ 164 0006 1B68     		ldr	r3, [r3]
+ 165 0008 0749     		ldr	r1, .L11+8
+ 166 000a A1FB0313 		umull	r1, r3, r1, r3
+ 167 000e 9B0C     		lsrs	r3, r3, #18
+  47:Bsp/Src/ch390.c ****     while ((DWT->CYCCNT - start) < ticks);
+ 168              		.loc 1 47 14 view .LVU26
+ 169 0010 03FB00F0 		mul	r0, r3, r0
+ 170              	.LVL11:
+  48:Bsp/Src/ch390.c **** }
+ 171              		.loc 1 48 5 is_stmt 1 view .LVU27
+ 172              	.L10:
+  48:Bsp/Src/ch390.c **** }
+ 173              		.loc 1 48 34 discriminator 1 view .LVU28
+  48:Bsp/Src/ch390.c **** }
+ 174              		.loc 1 48 16 is_stmt 0 discriminator 1 view .LVU29
+ 175 0014 024B     		ldr	r3, .L11
+ 176 0016 5B68     		ldr	r3, [r3, #4]
+  48:Bsp/Src/ch390.c **** }
+ 177              		.loc 1 48 25 discriminator 1 view .LVU30
+ 178 0018 9B1A     		subs	r3, r3, r2
+  48:Bsp/Src/ch390.c **** }
+ 179              		.loc 1 48 34 discriminator 1 view .LVU31
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 6
+
+
+ 180 001a 8342     		cmp	r3, r0
+ 181 001c FAD3     		bcc	.L10
+  49:Bsp/Src/ch390.c **** 
+ 182              		.loc 1 49 1 view .LVU32
+ 183 001e 7047     		bx	lr
+ 184              	.L12:
+ 185              		.align	2
+ 186              	.L11:
+ 187 0020 001000E0 		.word	-536866816
+ 188 0024 00000000 		.word	SystemCoreClock
+ 189 0028 83DE1B43 		.word	1125899907
+ 190              		.cfi_endproc
+ 191              	.LFE137:
+ 193              		.section	.text.ch390_software_reset,"ax",%progbits
+ 194              		.align	1
+ 195              		.global	ch390_software_reset
+ 196              		.syntax unified
+ 197              		.thumb
+ 198              		.thumb_func
+ 200              	ch390_software_reset:
+ 201              	.LFB138:
+  56:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_NCR, NCR_RST);
+ 202              		.loc 1 56 1 is_stmt 1 view -0
+ 203              		.cfi_startproc
+ 204              		@ args = 0, pretend = 0, frame = 0
+ 205              		@ frame_needed = 0, uses_anonymous_args = 0
+ 206 0000 08B5     		push	{r3, lr}
+ 207              	.LCFI6:
+ 208              		.cfi_def_cfa_offset 8
+ 209              		.cfi_offset 3, -8
+ 210              		.cfi_offset 14, -4
+  57:Bsp/Src/ch390.c ****     ch390_delay_us(10);
+ 211              		.loc 1 57 5 view .LVU34
+ 212 0002 0121     		movs	r1, #1
+ 213 0004 0020     		movs	r0, #0
+ 214 0006 FFF7FEFF 		bl	ch390_write_reg
+ 215              	.LVL12:
+  58:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_NCR, 0);
+ 216              		.loc 1 58 5 view .LVU35
+ 217 000a 0A20     		movs	r0, #10
+ 218 000c FFF7FEFF 		bl	ch390_delay_us
+ 219              	.LVL13:
+  59:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_NCR, NCR_RST);
+ 220              		.loc 1 59 5 view .LVU36
+ 221 0010 0021     		movs	r1, #0
+ 222 0012 0846     		mov	r0, r1
+ 223 0014 FFF7FEFF 		bl	ch390_write_reg
+ 224              	.LVL14:
+  60:Bsp/Src/ch390.c ****     ch390_delay_us(10);
+ 225              		.loc 1 60 5 view .LVU37
+ 226 0018 0121     		movs	r1, #1
+ 227 001a 0020     		movs	r0, #0
+ 228 001c FFF7FEFF 		bl	ch390_write_reg
+ 229              	.LVL15:
+  61:Bsp/Src/ch390.c **** }
+ 230              		.loc 1 61 5 view .LVU38
+ 231 0020 0A20     		movs	r0, #10
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 7
+
+
+ 232 0022 FFF7FEFF 		bl	ch390_delay_us
+ 233              	.LVL16:
+  62:Bsp/Src/ch390.c **** 
+ 234              		.loc 1 62 1 is_stmt 0 view .LVU39
+ 235 0026 08BD     		pop	{r3, pc}
+ 236              		.cfi_endproc
+ 237              	.LFE138:
+ 239              		.section	.text.ch390_read_reg,"ax",%progbits
+ 240              		.align	1
+ 241              		.global	ch390_read_reg
+ 242              		.syntax unified
+ 243              		.thumb
+ 244              		.thumb_func
+ 246              	ch390_read_reg:
+ 247              	.LVL17:
+ 248              	.LFB140:
+  88:Bsp/Src/ch390.c **** #define ch390_spi_dummy_read() ch390_spi_exchange_byte(0)
+  89:Bsp/Src/ch390.c **** 
+  90:Bsp/Src/ch390.c **** /**
+  91:Bsp/Src/ch390.c ****  * @name ch390_read_reg
+  92:Bsp/Src/ch390.c ****  * @brief Read register
+  93:Bsp/Src/ch390.c ****  * @param reg - Target register address
+  94:Bsp/Src/ch390.c ****  * @return Register value
+  95:Bsp/Src/ch390.c ****  */
+  96:Bsp/Src/ch390.c **** uint8_t ch390_read_reg(uint8_t reg)
+  97:Bsp/Src/ch390.c **** {
+ 249              		.loc 1 97 1 is_stmt 1 view -0
+ 250              		.cfi_startproc
+ 251              		@ args = 0, pretend = 0, frame = 0
+ 252              		@ frame_needed = 0, uses_anonymous_args = 0
+ 253              		.loc 1 97 1 is_stmt 0 view .LVU41
+ 254 0000 38B5     		push	{r3, r4, r5, lr}
+ 255              	.LCFI7:
+ 256              		.cfi_def_cfa_offset 16
+ 257              		.cfi_offset 3, -16
+ 258              		.cfi_offset 4, -12
+ 259              		.cfi_offset 5, -8
+ 260              		.cfi_offset 14, -4
+ 261 0002 0446     		mov	r4, r0
+  98:Bsp/Src/ch390.c ****     uint8_t spi_data;
+ 262              		.loc 1 98 5 is_stmt 1 view .LVU42
+  99:Bsp/Src/ch390.c ****     ch390_cs(0); // CS = 0
+ 263              		.loc 1 99 5 view .LVU43
+ 264 0004 0A4D     		ldr	r5, .L17
+ 265 0006 0022     		movs	r2, #0
+ 266 0008 4FF40061 		mov	r1, #2048
+ 267 000c 2846     		mov	r0, r5
+ 268              	.LVL18:
+ 269              		.loc 1 99 5 is_stmt 0 view .LVU44
+ 270 000e FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 271              	.LVL19:
+ 100:Bsp/Src/ch390.c ****     ch390_spi_exchange_byte(reg | OPC_REG_R);
+ 272              		.loc 1 100 5 is_stmt 1 view .LVU45
+ 273 0012 2046     		mov	r0, r4
+ 274 0014 FFF7FEFF 		bl	ch390_spi_exchange_byte
+ 275              	.LVL20:
+ 101:Bsp/Src/ch390.c ****     spi_data = ch390_spi_dummy_read();
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 8
+
+
+ 276              		.loc 1 101 5 view .LVU46
+ 277              		.loc 1 101 16 is_stmt 0 view .LVU47
+ 278 0018 0020     		movs	r0, #0
+ 279 001a FFF7FEFF 		bl	ch390_spi_exchange_byte
+ 280              	.LVL21:
+ 281 001e 0446     		mov	r4, r0
+ 282              	.LVL22:
+ 102:Bsp/Src/ch390.c ****     ch390_cs(1); // CS = 1
+ 283              		.loc 1 102 5 is_stmt 1 view .LVU48
+ 284 0020 0122     		movs	r2, #1
+ 285 0022 4FF40061 		mov	r1, #2048
+ 286 0026 2846     		mov	r0, r5
+ 287 0028 FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 288              	.LVL23:
+ 103:Bsp/Src/ch390.c ****     return spi_data;
+ 289              		.loc 1 103 5 view .LVU49
+ 104:Bsp/Src/ch390.c **** }
+ 290              		.loc 1 104 1 is_stmt 0 view .LVU50
+ 291 002c 2046     		mov	r0, r4
+ 292 002e 38BD     		pop	{r3, r4, r5, pc}
+ 293              	.LVL24:
+ 294              	.L18:
+ 295              		.loc 1 104 1 view .LVU51
+ 296              		.align	2
+ 297              	.L17:
+ 298 0030 000C0240 		.word	1073875968
+ 299              		.cfi_endproc
+ 300              	.LFE140:
+ 302              		.section	.text.ch390_get_link_status,"ax",%progbits
+ 303              		.align	1
+ 304              		.global	ch390_get_link_status
+ 305              		.syntax unified
+ 306              		.thumb
+ 307              		.thumb_func
+ 309              	ch390_get_link_status:
+ 310              	.LFB134:
+   9:Bsp/Src/ch390.c ****     uint8_t nsr = ch390_read_reg(CH390_NSR);
+ 311              		.loc 1 9 1 is_stmt 1 view -0
+ 312              		.cfi_startproc
+ 313              		@ args = 0, pretend = 0, frame = 0
+ 314              		@ frame_needed = 0, uses_anonymous_args = 0
+ 315 0000 08B5     		push	{r3, lr}
+ 316              	.LCFI8:
+ 317              		.cfi_def_cfa_offset 8
+ 318              		.cfi_offset 3, -8
+ 319              		.cfi_offset 14, -4
+  10:Bsp/Src/ch390.c ****     return !!(nsr & NSR_LINKST);
+ 320              		.loc 1 10 5 view .LVU53
+  10:Bsp/Src/ch390.c ****     return !!(nsr & NSR_LINKST);
+ 321              		.loc 1 10 19 is_stmt 0 view .LVU54
+ 322 0002 0120     		movs	r0, #1
+ 323 0004 FFF7FEFF 		bl	ch390_read_reg
+ 324              	.LVL25:
+  11:Bsp/Src/ch390.c **** }
+ 325              		.loc 1 11 5 is_stmt 1 view .LVU55
+  12:Bsp/Src/ch390.c **** 
+ 326              		.loc 1 12 1 is_stmt 0 view .LVU56
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 9
+
+
+ 327 0008 C0F38010 		ubfx	r0, r0, #6, #1
+ 328              	.LVL26:
+  12:Bsp/Src/ch390.c **** 
+ 329              		.loc 1 12 1 view .LVU57
+ 330 000c 08BD     		pop	{r3, pc}
+ 331              		.cfi_endproc
+ 332              	.LFE134:
+ 334              		.section	.text.ch390_get_int_status,"ax",%progbits
+ 335              		.align	1
+ 336              		.global	ch390_get_int_status
+ 337              		.syntax unified
+ 338              		.thumb
+ 339              		.thumb_func
+ 341              	ch390_get_int_status:
+ 342              	.LFB135:
+  20:Bsp/Src/ch390.c ****     uint8_t int_status = ch390_read_reg(CH390_ISR);
+ 343              		.loc 1 20 1 is_stmt 1 view -0
+ 344              		.cfi_startproc
+ 345              		@ args = 0, pretend = 0, frame = 0
+ 346              		@ frame_needed = 0, uses_anonymous_args = 0
+ 347 0000 10B5     		push	{r4, lr}
+ 348              	.LCFI9:
+ 349              		.cfi_def_cfa_offset 8
+ 350              		.cfi_offset 4, -8
+ 351              		.cfi_offset 14, -4
+  21:Bsp/Src/ch390.c ****     // Clear interrupt status by write 1
+ 352              		.loc 1 21 5 view .LVU59
+  21:Bsp/Src/ch390.c ****     // Clear interrupt status by write 1
+ 353              		.loc 1 21 26 is_stmt 0 view .LVU60
+ 354 0002 7E20     		movs	r0, #126
+ 355 0004 FFF7FEFF 		bl	ch390_read_reg
+ 356              	.LVL27:
+ 357 0008 0446     		mov	r4, r0
+ 358              	.LVL28:
+  23:Bsp/Src/ch390.c ****     return int_status;
+ 359              		.loc 1 23 5 is_stmt 1 view .LVU61
+ 360 000a 0146     		mov	r1, r0
+ 361 000c 7E20     		movs	r0, #126
+ 362              	.LVL29:
+  23:Bsp/Src/ch390.c ****     return int_status;
+ 363              		.loc 1 23 5 is_stmt 0 view .LVU62
+ 364 000e FFF7FEFF 		bl	ch390_write_reg
+ 365              	.LVL30:
+  24:Bsp/Src/ch390.c **** }
+ 366              		.loc 1 24 5 is_stmt 1 view .LVU63
+  25:Bsp/Src/ch390.c **** 
+ 367              		.loc 1 25 1 is_stmt 0 view .LVU64
+ 368 0012 2046     		mov	r0, r4
+ 369 0014 10BD     		pop	{r4, pc}
+ 370              		.cfi_endproc
+ 371              	.LFE135:
+ 373              		.section	.text.ch390_get_vendor_id,"ax",%progbits
+ 374              		.align	1
+ 375              		.global	ch390_get_vendor_id
+ 376              		.syntax unified
+ 377              		.thumb
+ 378              		.thumb_func
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 10
+
+
+ 380              	ch390_get_vendor_id:
+ 381              	.LFB141:
+ 105:Bsp/Src/ch390.c **** 
+ 106:Bsp/Src/ch390.c **** /**
+ 107:Bsp/Src/ch390.c ****  * @name ch390_get_vendor_id
+ 108:Bsp/Src/ch390.c ****  * @brief Get vendor ID
+ 109:Bsp/Src/ch390.c ****  * @return Vendor ID
+ 110:Bsp/Src/ch390.c ****  */
+ 111:Bsp/Src/ch390.c **** uint16_t ch390_get_vendor_id()
+ 112:Bsp/Src/ch390.c **** {
+ 382              		.loc 1 112 1 is_stmt 1 view -0
+ 383              		.cfi_startproc
+ 384              		@ args = 0, pretend = 0, frame = 0
+ 385              		@ frame_needed = 0, uses_anonymous_args = 0
+ 386 0000 10B5     		push	{r4, lr}
+ 387              	.LCFI10:
+ 388              		.cfi_def_cfa_offset 8
+ 389              		.cfi_offset 4, -8
+ 390              		.cfi_offset 14, -4
+ 113:Bsp/Src/ch390.c ****     uint16_t id;
+ 391              		.loc 1 113 5 view .LVU66
+ 114:Bsp/Src/ch390.c ****     id = (ch390_read_reg(CH390_VIDL) & 0xff);
+ 392              		.loc 1 114 5 view .LVU67
+ 393              		.loc 1 114 11 is_stmt 0 view .LVU68
+ 394 0002 2820     		movs	r0, #40
+ 395 0004 FFF7FEFF 		bl	ch390_read_reg
+ 396              	.LVL31:
+ 397 0008 0446     		mov	r4, r0
+ 398              	.LVL32:
+ 115:Bsp/Src/ch390.c ****     id |= ch390_read_reg(CH390_VIDH) << 8;
+ 399              		.loc 1 115 5 is_stmt 1 view .LVU69
+ 400              		.loc 1 115 11 is_stmt 0 view .LVU70
+ 401 000a 2920     		movs	r0, #41
+ 402 000c FFF7FEFF 		bl	ch390_read_reg
+ 403              	.LVL33:
+ 404              		.loc 1 115 8 discriminator 1 view .LVU71
+ 405 0010 44EA0020 		orr	r0, r4, r0, lsl #8
+ 406              	.LVL34:
+ 116:Bsp/Src/ch390.c ****     return id;
+ 407              		.loc 1 116 5 is_stmt 1 view .LVU72
+ 117:Bsp/Src/ch390.c **** }
+ 408              		.loc 1 117 1 is_stmt 0 view .LVU73
+ 409 0014 80B2     		uxth	r0, r0
+ 410              		.loc 1 117 1 view .LVU74
+ 411 0016 10BD     		pop	{r4, pc}
+ 412              		.cfi_endproc
+ 413              	.LFE141:
+ 415              		.section	.text.ch390_get_product_id,"ax",%progbits
+ 416              		.align	1
+ 417              		.global	ch390_get_product_id
+ 418              		.syntax unified
+ 419              		.thumb
+ 420              		.thumb_func
+ 422              	ch390_get_product_id:
+ 423              	.LFB142:
+ 118:Bsp/Src/ch390.c **** 
+ 119:Bsp/Src/ch390.c **** /**
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 11
+
+
+ 120:Bsp/Src/ch390.c ****  * @name ch390_get_product_id
+ 121:Bsp/Src/ch390.c ****  * @brief Get product ID
+ 122:Bsp/Src/ch390.c ****  * @return Product ID
+ 123:Bsp/Src/ch390.c ****  */
+ 124:Bsp/Src/ch390.c **** uint16_t ch390_get_product_id()
+ 125:Bsp/Src/ch390.c **** {
+ 424              		.loc 1 125 1 is_stmt 1 view -0
+ 425              		.cfi_startproc
+ 426              		@ args = 0, pretend = 0, frame = 0
+ 427              		@ frame_needed = 0, uses_anonymous_args = 0
+ 428 0000 10B5     		push	{r4, lr}
+ 429              	.LCFI11:
+ 430              		.cfi_def_cfa_offset 8
+ 431              		.cfi_offset 4, -8
+ 432              		.cfi_offset 14, -4
+ 126:Bsp/Src/ch390.c ****     uint16_t id;
+ 433              		.loc 1 126 5 view .LVU76
+ 127:Bsp/Src/ch390.c ****     id = (ch390_read_reg(CH390_PIDL) & 0xff);
+ 434              		.loc 1 127 5 view .LVU77
+ 435              		.loc 1 127 11 is_stmt 0 view .LVU78
+ 436 0002 2A20     		movs	r0, #42
+ 437 0004 FFF7FEFF 		bl	ch390_read_reg
+ 438              	.LVL35:
+ 439 0008 0446     		mov	r4, r0
+ 440              	.LVL36:
+ 128:Bsp/Src/ch390.c ****     id |= ch390_read_reg(CH390_PIDH) << 8;
+ 441              		.loc 1 128 5 is_stmt 1 view .LVU79
+ 442              		.loc 1 128 11 is_stmt 0 view .LVU80
+ 443 000a 2B20     		movs	r0, #43
+ 444 000c FFF7FEFF 		bl	ch390_read_reg
+ 445              	.LVL37:
+ 446              		.loc 1 128 8 discriminator 1 view .LVU81
+ 447 0010 44EA0020 		orr	r0, r4, r0, lsl #8
+ 448              	.LVL38:
+ 129:Bsp/Src/ch390.c ****     return id;
+ 449              		.loc 1 129 5 is_stmt 1 view .LVU82
+ 130:Bsp/Src/ch390.c **** }
+ 450              		.loc 1 130 1 is_stmt 0 view .LVU83
+ 451 0014 80B2     		uxth	r0, r0
+ 452              		.loc 1 130 1 view .LVU84
+ 453 0016 10BD     		pop	{r4, pc}
+ 454              		.cfi_endproc
+ 455              	.LFE142:
+ 457              		.section	.text.ch390_get_mac,"ax",%progbits
+ 458              		.align	1
+ 459              		.global	ch390_get_mac
+ 460              		.syntax unified
+ 461              		.thumb
+ 462              		.thumb_func
+ 464              	ch390_get_mac:
+ 465              	.LVL39:
+ 466              	.LFB143:
+ 131:Bsp/Src/ch390.c **** 
+ 132:Bsp/Src/ch390.c **** /**
+ 133:Bsp/Src/ch390.c ****  * @name ch390_get_mac
+ 134:Bsp/Src/ch390.c ****  * @brief Get mac address
+ 135:Bsp/Src/ch390.c ****  * @param mac_addr - 6-byte length mac address output
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 12
+
+
+ 136:Bsp/Src/ch390.c ****  */
+ 137:Bsp/Src/ch390.c **** void ch390_get_mac(uint8_t *mac_addr)
+ 138:Bsp/Src/ch390.c **** {
+ 467              		.loc 1 138 1 is_stmt 1 view -0
+ 468              		.cfi_startproc
+ 469              		@ args = 0, pretend = 0, frame = 0
+ 470              		@ frame_needed = 0, uses_anonymous_args = 0
+ 471              		.loc 1 138 1 is_stmt 0 view .LVU86
+ 472 0000 38B5     		push	{r3, r4, r5, lr}
+ 473              	.LCFI12:
+ 474              		.cfi_def_cfa_offset 16
+ 475              		.cfi_offset 3, -16
+ 476              		.cfi_offset 4, -12
+ 477              		.cfi_offset 5, -8
+ 478              		.cfi_offset 14, -4
+ 479 0002 0546     		mov	r5, r0
+ 139:Bsp/Src/ch390.c ****     uint8_t i;
+ 480              		.loc 1 139 5 is_stmt 1 view .LVU87
+ 140:Bsp/Src/ch390.c ****     for (i = 0; i < 6; i++)
+ 481              		.loc 1 140 5 view .LVU88
+ 482              	.LVL40:
+ 483              		.loc 1 140 12 is_stmt 0 view .LVU89
+ 484 0004 0024     		movs	r4, #0
+ 485              		.loc 1 140 5 view .LVU90
+ 486 0006 07E0     		b	.L28
+ 487              	.LVL41:
+ 488              	.L29:
+ 141:Bsp/Src/ch390.c ****     {
+ 142:Bsp/Src/ch390.c ****         mac_addr[i] = ch390_read_reg(CH390_PAR + i);
+ 489              		.loc 1 142 9 is_stmt 1 view .LVU91
+ 490              		.loc 1 142 23 is_stmt 0 view .LVU92
+ 491 0008 04F11000 		add	r0, r4, #16
+ 492 000c C0B2     		uxtb	r0, r0
+ 493 000e FFF7FEFF 		bl	ch390_read_reg
+ 494              	.LVL42:
+ 495              		.loc 1 142 21 discriminator 1 view .LVU93
+ 496 0012 2855     		strb	r0, [r5, r4]
+ 140:Bsp/Src/ch390.c ****     for (i = 0; i < 6; i++)
+ 497              		.loc 1 140 25 is_stmt 1 discriminator 3 view .LVU94
+ 498 0014 0134     		adds	r4, r4, #1
+ 499              	.LVL43:
+ 140:Bsp/Src/ch390.c ****     for (i = 0; i < 6; i++)
+ 500              		.loc 1 140 25 is_stmt 0 discriminator 3 view .LVU95
+ 501 0016 E4B2     		uxtb	r4, r4
+ 502              	.LVL44:
+ 503              	.L28:
+ 140:Bsp/Src/ch390.c ****     for (i = 0; i < 6; i++)
+ 504              		.loc 1 140 19 is_stmt 1 discriminator 1 view .LVU96
+ 505 0018 052C     		cmp	r4, #5
+ 506 001a F5D9     		bls	.L29
+ 143:Bsp/Src/ch390.c ****     }
+ 144:Bsp/Src/ch390.c ****     ch390_read_reg(0);
+ 507              		.loc 1 144 5 view .LVU97
+ 508 001c 0020     		movs	r0, #0
+ 509 001e FFF7FEFF 		bl	ch390_read_reg
+ 510              	.LVL45:
+ 145:Bsp/Src/ch390.c **** }
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 13
+
+
+ 511              		.loc 1 145 1 is_stmt 0 view .LVU98
+ 512 0022 38BD     		pop	{r3, r4, r5, pc}
+ 513              		.loc 1 145 1 view .LVU99
+ 514              		.cfi_endproc
+ 515              	.LFE143:
+ 517              		.section	.text.ch390_write_phy,"ax",%progbits
+ 518              		.align	1
+ 519              		.global	ch390_write_phy
+ 520              		.syntax unified
+ 521              		.thumb
+ 522              		.thumb_func
+ 524              	ch390_write_phy:
+ 525              	.LVL46:
+ 526              	.LFB144:
+ 146:Bsp/Src/ch390.c **** 
+ 147:Bsp/Src/ch390.c **** /**
+ 148:Bsp/Src/ch390.c ****  * @name ch390_write_phy
+ 149:Bsp/Src/ch390.c ****  * @brief Write PHY register
+ 150:Bsp/Src/ch390.c ****  * @param reg - PHY register address
+ 151:Bsp/Src/ch390.c ****  * @param value - Value to be written
+ 152:Bsp/Src/ch390.c ****  */
+ 153:Bsp/Src/ch390.c **** void ch390_write_phy(uint8_t reg, uint16_t value)
+ 154:Bsp/Src/ch390.c **** {
+ 527              		.loc 1 154 1 is_stmt 1 view -0
+ 528              		.cfi_startproc
+ 529              		@ args = 0, pretend = 0, frame = 0
+ 530              		@ frame_needed = 0, uses_anonymous_args = 0
+ 531              		.loc 1 154 1 is_stmt 0 view .LVU101
+ 532 0000 10B5     		push	{r4, lr}
+ 533              	.LCFI13:
+ 534              		.cfi_def_cfa_offset 8
+ 535              		.cfi_offset 4, -8
+ 536              		.cfi_offset 14, -4
+ 537 0002 0C46     		mov	r4, r1
+ 155:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_EPAR, CH390_PHY | reg);
+ 538              		.loc 1 155 5 is_stmt 1 view .LVU102
+ 539 0004 40F04001 		orr	r1, r0, #64
+ 540              	.LVL47:
+ 541              		.loc 1 155 5 is_stmt 0 view .LVU103
+ 542 0008 0C20     		movs	r0, #12
+ 543              	.LVL48:
+ 544              		.loc 1 155 5 view .LVU104
+ 545 000a FFF7FEFF 		bl	ch390_write_reg
+ 546              	.LVL49:
+ 156:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_EPDRL, (value & 0xff));        // Low byte
+ 547              		.loc 1 156 5 is_stmt 1 view .LVU105
+ 548 000e E1B2     		uxtb	r1, r4
+ 549 0010 0D20     		movs	r0, #13
+ 550 0012 FFF7FEFF 		bl	ch390_write_reg
+ 551              	.LVL50:
+ 157:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_EPDRH, ((value >> 8) & 0xff)); // High byte
+ 552              		.loc 1 157 5 view .LVU106
+ 553 0016 210A     		lsrs	r1, r4, #8
+ 554 0018 0E20     		movs	r0, #14
+ 555 001a FFF7FEFF 		bl	ch390_write_reg
+ 556              	.LVL51:
+ 158:Bsp/Src/ch390.c ****     // Chose PHY, send write command
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 14
+
+
+ 159:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_EPCR, 0x0A);
+ 557              		.loc 1 159 5 view .LVU107
+ 558 001e 0A21     		movs	r1, #10
+ 559 0020 0B20     		movs	r0, #11
+ 560 0022 FFF7FEFF 		bl	ch390_write_reg
+ 561              	.LVL52:
+ 160:Bsp/Src/ch390.c ****     while(ch390_read_reg(CH390_EPCR) & 0x01);
+ 562              		.loc 1 160 5 view .LVU108
+ 563              	.L32:
+ 564              		.loc 1 160 11 discriminator 1 view .LVU109
+ 565 0026 0B20     		movs	r0, #11
+ 566 0028 FFF7FEFF 		bl	ch390_read_reg
+ 567              	.LVL53:
+ 568 002c 10F0010F 		tst	r0, #1
+ 569 0030 F9D1     		bne	.L32
+ 161:Bsp/Src/ch390.c ****     // Clear write command
+ 162:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_EPCR, 0x00);
+ 570              		.loc 1 162 5 view .LVU110
+ 571 0032 0021     		movs	r1, #0
+ 572 0034 0B20     		movs	r0, #11
+ 573 0036 FFF7FEFF 		bl	ch390_write_reg
+ 574              	.LVL54:
+ 163:Bsp/Src/ch390.c **** }
+ 575              		.loc 1 163 1 is_stmt 0 view .LVU111
+ 576 003a 10BD     		pop	{r4, pc}
+ 577              		.loc 1 163 1 view .LVU112
+ 578              		.cfi_endproc
+ 579              	.LFE144:
+ 581              		.section	.text.ch390_set_phy_mode,"ax",%progbits
+ 582              		.align	1
+ 583              		.global	ch390_set_phy_mode
+ 584              		.syntax unified
+ 585              		.thumb
+ 586              		.thumb_func
+ 588              	ch390_set_phy_mode:
+ 589              	.LVL55:
+ 590              	.LFB145:
+ 164:Bsp/Src/ch390.c **** 
+ 165:Bsp/Src/ch390.c **** /**
+ 166:Bsp/Src/ch390.c ****  * @name ch390_set_phy_mode
+ 167:Bsp/Src/ch390.c ****  * @brief Set PHY mode and enable PHY.
+ 168:Bsp/Src/ch390.c ****  *        PHY mode: Auto-negotiation, 10M/100M, full-duplex/half-duplex
+ 169:Bsp/Src/ch390.c ****  * @param mode - PHY mode
+ 170:Bsp/Src/ch390.c ****  */
+ 171:Bsp/Src/ch390.c **** void ch390_set_phy_mode(enum ch390_phy_mode mode)
+ 172:Bsp/Src/ch390.c **** {
+ 591              		.loc 1 172 1 is_stmt 1 view -0
+ 592              		.cfi_startproc
+ 593              		@ args = 0, pretend = 0, frame = 0
+ 594              		@ frame_needed = 0, uses_anonymous_args = 0
+ 595              		.loc 1 172 1 is_stmt 0 view .LVU114
+ 596 0000 10B5     		push	{r4, lr}
+ 597              	.LCFI14:
+ 598              		.cfi_def_cfa_offset 8
+ 599              		.cfi_offset 4, -8
+ 600              		.cfi_offset 14, -4
+ 173:Bsp/Src/ch390.c ****     uint16_t BMCR_value = 0;
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 15
+
+
+ 601              		.loc 1 173 5 is_stmt 1 view .LVU115
+ 602              	.LVL56:
+ 174:Bsp/Src/ch390.c ****     uint16_t ANAR_value = 0;
+ 603              		.loc 1 174 5 view .LVU116
+ 175:Bsp/Src/ch390.c ****     switch (mode)
+ 604              		.loc 1 175 5 view .LVU117
+ 605 0002 0128     		cmp	r0, #1
+ 606 0004 06D0     		beq	.L36
+ 607 0006 0228     		cmp	r0, #2
+ 608 0008 09D0     		beq	.L37
+ 609 000a C0B9     		cbnz	r0, .L38
+ 176:Bsp/Src/ch390.c ****     {
+ 177:Bsp/Src/ch390.c ****     case CH390_10MFD:
+ 178:Bsp/Src/ch390.c ****         BMCR_value = 0x1100;
+ 179:Bsp/Src/ch390.c ****         ANAR_value = 0x41;
+ 610              		.loc 1 179 20 is_stmt 0 view .LVU118
+ 611 000c 4124     		movs	r4, #65
+ 178:Bsp/Src/ch390.c ****         ANAR_value = 0x41;
+ 612              		.loc 1 178 20 view .LVU119
+ 613 000e 4FF48851 		mov	r1, #4352
+ 614 0012 08E0     		b	.L35
+ 615              	.L36:
+ 180:Bsp/Src/ch390.c ****         break;
+ 181:Bsp/Src/ch390.c ****     case CH390_100MFD:
+ 182:Bsp/Src/ch390.c ****         BMCR_value = 0x3100;
+ 183:Bsp/Src/ch390.c ****         ANAR_value = 0x101;
+ 616              		.loc 1 183 20 view .LVU120
+ 617 0014 40F20114 		movw	r4, #257
+ 182:Bsp/Src/ch390.c ****         ANAR_value = 0x101;
+ 618              		.loc 1 182 20 view .LVU121
+ 619 0018 4FF44451 		mov	r1, #12544
+ 620 001c 03E0     		b	.L35
+ 621              	.L37:
+ 184:Bsp/Src/ch390.c ****         break;
+ 185:Bsp/Src/ch390.c ****     case CH390_AUTO:
+ 186:Bsp/Src/ch390.c ****         BMCR_value = 0x1000;
+ 187:Bsp/Src/ch390.c ****         ANAR_value = 0x01E1;
+ 622              		.loc 1 187 20 view .LVU122
+ 623 001e 40F2E114 		movw	r4, #481
+ 186:Bsp/Src/ch390.c ****         ANAR_value = 0x01E1;
+ 624              		.loc 1 186 20 view .LVU123
+ 625 0022 4FF48051 		mov	r1, #4096
+ 626              	.L35:
+ 627              	.LVL57:
+ 188:Bsp/Src/ch390.c ****         break;
+ 189:Bsp/Src/ch390.c ****     }
+ 190:Bsp/Src/ch390.c ****     ch390_write_phy(CH390_PHY_BMCR, BMCR_value);
+ 628              		.loc 1 190 5 is_stmt 1 view .LVU124
+ 629 0026 0020     		movs	r0, #0
+ 630              	.LVL58:
+ 631              		.loc 1 190 5 is_stmt 0 view .LVU125
+ 632 0028 FFF7FEFF 		bl	ch390_write_phy
+ 633              	.LVL59:
+ 191:Bsp/Src/ch390.c ****     ch390_write_phy(CH390_PHY_ANAR, ANAR_value);
+ 634              		.loc 1 191 5 is_stmt 1 view .LVU126
+ 635 002c 2146     		mov	r1, r4
+ 636 002e 0420     		movs	r0, #4
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 16
+
+
+ 637 0030 FFF7FEFF 		bl	ch390_write_phy
+ 638              	.LVL60:
+ 192:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_GPR, 0x00);   // Enable PHY
+ 639              		.loc 1 192 5 view .LVU127
+ 640 0034 0021     		movs	r1, #0
+ 641 0036 1F20     		movs	r0, #31
+ 642 0038 FFF7FEFF 		bl	ch390_write_reg
+ 643              	.LVL61:
+ 193:Bsp/Src/ch390.c **** }
+ 644              		.loc 1 193 1 is_stmt 0 view .LVU128
+ 645 003c 10BD     		pop	{r4, pc}
+ 646              	.LVL62:
+ 647              	.L38:
+ 175:Bsp/Src/ch390.c ****     {
+ 648              		.loc 1 175 5 view .LVU129
+ 649 003e 0024     		movs	r4, #0
+ 650 0040 2146     		mov	r1, r4
+ 651 0042 F0E7     		b	.L35
+ 652              		.cfi_endproc
+ 653              	.LFE145:
+ 655              		.section	.text.ch390_set_multicast,"ax",%progbits
+ 656              		.align	1
+ 657              		.global	ch390_set_multicast
+ 658              		.syntax unified
+ 659              		.thumb
+ 660              		.thumb_func
+ 662              	ch390_set_multicast:
+ 663              	.LVL63:
+ 664              	.LFB146:
+ 194:Bsp/Src/ch390.c **** 
+ 195:Bsp/Src/ch390.c **** /**
+ 196:Bsp/Src/ch390.c ****  * @name ch390_set_multicast
+ 197:Bsp/Src/ch390.c ****  * @brief Set multicast address hash table
+ 198:Bsp/Src/ch390.c ****  * @param multicast_addr - 8-byte length multicast address hash table array
+ 199:Bsp/Src/ch390.c ****  */
+ 200:Bsp/Src/ch390.c **** void ch390_set_multicast(uint8_t *multicast_hash)
+ 201:Bsp/Src/ch390.c **** {
+ 665              		.loc 1 201 1 is_stmt 1 view -0
+ 666              		.cfi_startproc
+ 667              		@ args = 0, pretend = 0, frame = 0
+ 668              		@ frame_needed = 0, uses_anonymous_args = 0
+ 669              		.loc 1 201 1 is_stmt 0 view .LVU131
+ 670 0000 38B5     		push	{r3, r4, r5, lr}
+ 671              	.LCFI15:
+ 672              		.cfi_def_cfa_offset 16
+ 673              		.cfi_offset 3, -16
+ 674              		.cfi_offset 4, -12
+ 675              		.cfi_offset 5, -8
+ 676              		.cfi_offset 14, -4
+ 677 0002 0546     		mov	r5, r0
+ 202:Bsp/Src/ch390.c ****     uint8_t i;
+ 678              		.loc 1 202 5 is_stmt 1 view .LVU132
+ 203:Bsp/Src/ch390.c ****     for (i = 0; i < 8; i++)
+ 679              		.loc 1 203 5 view .LVU133
+ 680              	.LVL64:
+ 681              		.loc 1 203 12 is_stmt 0 view .LVU134
+ 682 0004 0024     		movs	r4, #0
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 17
+
+
+ 683              		.loc 1 203 5 view .LVU135
+ 684 0006 07E0     		b	.L41
+ 685              	.LVL65:
+ 686              	.L42:
+ 204:Bsp/Src/ch390.c ****     {
+ 205:Bsp/Src/ch390.c ****         ch390_write_reg(CH390_MAR + i, multicast_hash[i]);
+ 687              		.loc 1 205 9 is_stmt 1 view .LVU136
+ 688 0008 04F11600 		add	r0, r4, #22
+ 689 000c 295D     		ldrb	r1, [r5, r4]	@ zero_extendqisi2
+ 690 000e C0B2     		uxtb	r0, r0
+ 691 0010 FFF7FEFF 		bl	ch390_write_reg
+ 692              	.LVL66:
+ 203:Bsp/Src/ch390.c ****     for (i = 0; i < 8; i++)
+ 693              		.loc 1 203 25 discriminator 3 view .LVU137
+ 694 0014 0134     		adds	r4, r4, #1
+ 695              	.LVL67:
+ 203:Bsp/Src/ch390.c ****     for (i = 0; i < 8; i++)
+ 696              		.loc 1 203 25 is_stmt 0 discriminator 3 view .LVU138
+ 697 0016 E4B2     		uxtb	r4, r4
+ 698              	.LVL68:
+ 699              	.L41:
+ 203:Bsp/Src/ch390.c ****     for (i = 0; i < 8; i++)
+ 700              		.loc 1 203 19 is_stmt 1 discriminator 1 view .LVU139
+ 701 0018 072C     		cmp	r4, #7
+ 702 001a F5D9     		bls	.L42
+ 206:Bsp/Src/ch390.c ****     }
+ 207:Bsp/Src/ch390.c ****     ch390_read_reg(0);
+ 703              		.loc 1 207 5 view .LVU140
+ 704 001c 0020     		movs	r0, #0
+ 705 001e FFF7FEFF 		bl	ch390_read_reg
+ 706              	.LVL69:
+ 208:Bsp/Src/ch390.c **** }
+ 707              		.loc 1 208 1 is_stmt 0 view .LVU141
+ 708 0022 38BD     		pop	{r3, r4, r5, pc}
+ 709              		.loc 1 208 1 view .LVU142
+ 710              		.cfi_endproc
+ 711              	.LFE146:
+ 713              		.section	.rodata.ch390_default_config.str1.4,"aMS",%progbits,1
+ 714              		.align	2
+ 715              	.LC0:
+ 716 0000 FFFFFFFF 		.ascii	"\377\377\377\377\377\377\377\377\000"
+ 716      FFFFFFFF 
+ 716      00
+ 717              		.section	.text.ch390_default_config,"ax",%progbits
+ 718              		.align	1
+ 719              		.global	ch390_default_config
+ 720              		.syntax unified
+ 721              		.thumb
+ 722              		.thumb_func
+ 724              	ch390_default_config:
+ 725              	.LFB147:
+ 209:Bsp/Src/ch390.c **** 
+ 210:Bsp/Src/ch390.c **** 
+ 211:Bsp/Src/ch390.c **** /**
+ 212:Bsp/Src/ch390.c ****  * @name ch390_default_config
+ 213:Bsp/Src/ch390.c ****  * @brief Config CH390 with default options:
+ 214:Bsp/Src/ch390.c ****  *        LED mode 1;
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 18
+
+
+ 215:Bsp/Src/ch390.c ****  *        Enable transmit check sum generation;
+ 216:Bsp/Src/ch390.c ****  *        Enable RX;
+ 217:Bsp/Src/ch390.c ****  *        Enable all interrupt and PAR
+ 218:Bsp/Src/ch390.c ****  */
+ 219:Bsp/Src/ch390.c **** void ch390_default_config()
+ 220:Bsp/Src/ch390.c **** {
+ 726              		.loc 1 220 1 is_stmt 1 view -0
+ 727              		.cfi_startproc
+ 728              		@ args = 0, pretend = 0, frame = 8
+ 729              		@ frame_needed = 0, uses_anonymous_args = 0
+ 730 0000 10B5     		push	{r4, lr}
+ 731              	.LCFI16:
+ 732              		.cfi_def_cfa_offset 8
+ 733              		.cfi_offset 4, -8
+ 734              		.cfi_offset 14, -4
+ 735 0002 82B0     		sub	sp, sp, #8
+ 736              	.LCFI17:
+ 737              		.cfi_def_cfa_offset 16
+ 221:Bsp/Src/ch390.c ****     // CH390 has built-in MAC, this is not necessary
+ 222:Bsp/Src/ch390.c ****     // uint8_t mac_addr[6] = { 0x50, 0x54, 0x7B, 0x84, 0x00, 0x73 };
+ 223:Bsp/Src/ch390.c ****     // Multicast address hash table
+ 224:Bsp/Src/ch390.c ****     uint8_t multicase_addr[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+ 738              		.loc 1 224 5 view .LVU144
+ 739              		.loc 1 224 13 is_stmt 0 view .LVU145
+ 740 0004 124B     		ldr	r3, .L46
+ 741 0006 6C46     		mov	r4, sp
+ 742 0008 93E80300 		ldm	r3, {r0, r1}
+ 743 000c 84E80300 		stm	r4, {r0, r1}
+ 225:Bsp/Src/ch390.c **** 
+ 226:Bsp/Src/ch390.c ****     ch390_set_phy_mode(CH390_AUTO);
+ 744              		.loc 1 226 5 is_stmt 1 view .LVU146
+ 745 0010 0220     		movs	r0, #2
+ 746 0012 FFF7FEFF 		bl	ch390_set_phy_mode
+ 747              	.LVL70:
+ 227:Bsp/Src/ch390.c ****     // Clear status
+ 228:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_NSR, NSR_WAKEST | NSR_TX2END | NSR_TX1END);
+ 748              		.loc 1 228 5 view .LVU147
+ 749 0016 2C21     		movs	r1, #44
+ 750 0018 0120     		movs	r0, #1
+ 751 001a FFF7FEFF 		bl	ch390_write_reg
+ 752              	.LVL71:
+ 229:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_ISR, 0xFF);         // Clear interrupt status
+ 753              		.loc 1 229 5 view .LVU148
+ 754 001e FF21     		movs	r1, #255
+ 755 0020 7E20     		movs	r0, #126
+ 756 0022 FFF7FEFF 		bl	ch390_write_reg
+ 757              	.LVL72:
+ 230:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_TCR2, 0x80);        // LED mode 1
+ 758              		.loc 1 230 5 view .LVU149
+ 759 0026 8021     		movs	r1, #128
+ 760 0028 2D20     		movs	r0, #45
+ 761 002a FFF7FEFF 		bl	ch390_write_reg
+ 762              	.LVL73:
+ 231:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_TCSCR, TCSCR_ALL);  // Enable check sum generation
+ 763              		.loc 1 231 5 view .LVU150
+ 764 002e 1F21     		movs	r1, #31
+ 765 0030 3120     		movs	r0, #49
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 19
+
+
+ 766 0032 FFF7FEFF 		bl	ch390_write_reg
+ 767              	.LVL74:
+ 232:Bsp/Src/ch390.c **** 
+ 233:Bsp/Src/ch390.c ****     // ch390_set_mac_address(mac_addr);
+ 234:Bsp/Src/ch390.c ****     ch390_set_multicast(multicase_addr);
+ 768              		.loc 1 234 5 view .LVU151
+ 769 0036 2046     		mov	r0, r4
+ 770 0038 FFF7FEFF 		bl	ch390_set_multicast
+ 771              	.LVL75:
+ 235:Bsp/Src/ch390.c **** 
+ 236:Bsp/Src/ch390.c ****     // Enable all interrupt and PAR
+ 237:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_IMR, IMR_ALL);
+ 772              		.loc 1 237 5 view .LVU152
+ 773 003c FF21     		movs	r1, #255
+ 774 003e 7F20     		movs	r0, #127
+ 775 0040 FFF7FEFF 		bl	ch390_write_reg
+ 776              	.LVL76:
+ 238:Bsp/Src/ch390.c ****     // Enable RX
+ 239:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_RCR, RCR_DIS_CRC | RCR_RXEN);
+ 777              		.loc 1 239 5 view .LVU153
+ 778 0044 1121     		movs	r1, #17
+ 779 0046 0520     		movs	r0, #5
+ 780 0048 FFF7FEFF 		bl	ch390_write_reg
+ 781              	.LVL77:
+ 240:Bsp/Src/ch390.c **** }
+ 782              		.loc 1 240 1 is_stmt 0 view .LVU154
+ 783 004c 02B0     		add	sp, sp, #8
+ 784              	.LCFI18:
+ 785              		.cfi_def_cfa_offset 8
+ 786              		@ sp needed
+ 787 004e 10BD     		pop	{r4, pc}
+ 788              	.L47:
+ 789              		.align	2
+ 790              	.L46:
+ 791 0050 00000000 		.word	.LC0
+ 792              		.cfi_endproc
+ 793              	.LFE147:
+ 795              		.section	.text.ch390_write_mem,"ax",%progbits
+ 796              		.align	1
+ 797              		.global	ch390_write_mem
+ 798              		.syntax unified
+ 799              		.thumb
+ 800              		.thumb_func
+ 802              	ch390_write_mem:
+ 803              	.LVL78:
+ 804              	.LFB148:
+ 241:Bsp/Src/ch390.c **** 
+ 242:Bsp/Src/ch390.c **** /**
+ 243:Bsp/Src/ch390.c ****  * @name ch390_write_mem
+ 244:Bsp/Src/ch390.c ****  * @brief Write data to TX SRAM
+ 245:Bsp/Src/ch390.c ****  * @param data - Data buffer
+ 246:Bsp/Src/ch390.c ****  * @param length - Length to write
+ 247:Bsp/Src/ch390.c ****  */
+ 248:Bsp/Src/ch390.c **** void ch390_write_mem(uint8_t *data, int length)
+ 249:Bsp/Src/ch390.c **** {
+ 805              		.loc 1 249 1 is_stmt 1 view -0
+ 806              		.cfi_startproc
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 20
+
+
+ 807              		@ args = 0, pretend = 0, frame = 0
+ 808              		@ frame_needed = 0, uses_anonymous_args = 0
+ 809              		.loc 1 249 1 is_stmt 0 view .LVU156
+ 810 0000 70B5     		push	{r4, r5, r6, lr}
+ 811              	.LCFI19:
+ 812              		.cfi_def_cfa_offset 16
+ 813              		.cfi_offset 4, -16
+ 814              		.cfi_offset 5, -12
+ 815              		.cfi_offset 6, -8
+ 816              		.cfi_offset 14, -4
+ 817 0002 0646     		mov	r6, r0
+ 818 0004 0D46     		mov	r5, r1
+ 250:Bsp/Src/ch390.c ****     int i;
+ 819              		.loc 1 250 5 is_stmt 1 view .LVU157
+ 251:Bsp/Src/ch390.c ****     ch390_cs(0);
+ 820              		.loc 1 251 5 view .LVU158
+ 821 0006 0022     		movs	r2, #0
+ 822 0008 4FF40061 		mov	r1, #2048
+ 823              	.LVL79:
+ 824              		.loc 1 251 5 is_stmt 0 view .LVU159
+ 825 000c 0A48     		ldr	r0, .L52
+ 826              	.LVL80:
+ 827              		.loc 1 251 5 view .LVU160
+ 828 000e FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 829              	.LVL81:
+ 252:Bsp/Src/ch390.c ****     ch390_spi_exchange_byte(OPC_MEM_WRITE);
+ 830              		.loc 1 252 5 is_stmt 1 view .LVU161
+ 831 0012 F820     		movs	r0, #248
+ 832 0014 FFF7FEFF 		bl	ch390_spi_exchange_byte
+ 833              	.LVL82:
+ 253:Bsp/Src/ch390.c ****     for (i = 0; i < length; i++)
+ 834              		.loc 1 253 5 view .LVU162
+ 835              		.loc 1 253 12 is_stmt 0 view .LVU163
+ 836 0018 0024     		movs	r4, #0
+ 837              		.loc 1 253 5 view .LVU164
+ 838 001a 03E0     		b	.L49
+ 839              	.LVL83:
+ 840              	.L50:
+ 254:Bsp/Src/ch390.c ****     {
+ 255:Bsp/Src/ch390.c ****         ch390_spi_exchange_byte(data[i]);
+ 841              		.loc 1 255 9 is_stmt 1 view .LVU165
+ 842 001c 305D     		ldrb	r0, [r6, r4]	@ zero_extendqisi2
+ 843 001e FFF7FEFF 		bl	ch390_spi_exchange_byte
+ 844              	.LVL84:
+ 253:Bsp/Src/ch390.c ****     for (i = 0; i < length; i++)
+ 845              		.loc 1 253 30 discriminator 3 view .LVU166
+ 846 0022 0134     		adds	r4, r4, #1
+ 847              	.LVL85:
+ 848              	.L49:
+ 253:Bsp/Src/ch390.c ****     for (i = 0; i < length; i++)
+ 849              		.loc 1 253 19 discriminator 1 view .LVU167
+ 850 0024 AC42     		cmp	r4, r5
+ 851 0026 F9DB     		blt	.L50
+ 256:Bsp/Src/ch390.c ****     }
+ 257:Bsp/Src/ch390.c ****     ch390_cs(1);
+ 852              		.loc 1 257 5 view .LVU168
+ 853 0028 0122     		movs	r2, #1
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 21
+
+
+ 854 002a 4FF40061 		mov	r1, #2048
+ 855 002e 0248     		ldr	r0, .L52
+ 856 0030 FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 857              	.LVL86:
+ 258:Bsp/Src/ch390.c **** }
+ 858              		.loc 1 258 1 is_stmt 0 view .LVU169
+ 859 0034 70BD     		pop	{r4, r5, r6, pc}
+ 860              	.LVL87:
+ 861              	.L53:
+ 862              		.loc 1 258 1 view .LVU170
+ 863 0036 00BF     		.align	2
+ 864              	.L52:
+ 865 0038 000C0240 		.word	1073875968
+ 866              		.cfi_endproc
+ 867              	.LFE148:
+ 869              		.section	.text.ch390_send_request,"ax",%progbits
+ 870              		.align	1
+ 871              		.global	ch390_send_request
+ 872              		.syntax unified
+ 873              		.thumb
+ 874              		.thumb_func
+ 876              	ch390_send_request:
+ 877              	.LFB149:
+ 259:Bsp/Src/ch390.c **** 
+ 260:Bsp/Src/ch390.c **** /**
+ 261:Bsp/Src/ch390.c ****  * @name ch390_send_request
+ 262:Bsp/Src/ch390.c ****  * @brief Issue transmit request
+ 263:Bsp/Src/ch390.c ****  */
+ 264:Bsp/Src/ch390.c **** void ch390_send_request()
+ 265:Bsp/Src/ch390.c **** {
+ 878              		.loc 1 265 1 is_stmt 1 view -0
+ 879              		.cfi_startproc
+ 880              		@ args = 0, pretend = 0, frame = 0
+ 881              		@ frame_needed = 0, uses_anonymous_args = 0
+ 882 0000 08B5     		push	{r3, lr}
+ 883              	.LCFI20:
+ 884              		.cfi_def_cfa_offset 8
+ 885              		.cfi_offset 3, -8
+ 886              		.cfi_offset 14, -4
+ 266:Bsp/Src/ch390.c ****     uint8_t tcr = ch390_read_reg(CH390_TCR);
+ 887              		.loc 1 266 5 view .LVU172
+ 888              		.loc 1 266 19 is_stmt 0 view .LVU173
+ 889 0002 0220     		movs	r0, #2
+ 890 0004 FFF7FEFF 		bl	ch390_read_reg
+ 891              	.LVL88:
+ 267:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_TCR, tcr | TCR_TXREQ);
+ 892              		.loc 1 267 5 is_stmt 1 view .LVU174
+ 893 0008 40F00101 		orr	r1, r0, #1
+ 894 000c C9B2     		uxtb	r1, r1
+ 895 000e 0220     		movs	r0, #2
+ 896              	.LVL89:
+ 897              		.loc 1 267 5 is_stmt 0 view .LVU175
+ 898 0010 FFF7FEFF 		bl	ch390_write_reg
+ 899              	.LVL90:
+ 268:Bsp/Src/ch390.c **** }
+ 900              		.loc 1 268 1 view .LVU176
+ 901 0014 08BD     		pop	{r3, pc}
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 22
+
+
+ 902              		.cfi_endproc
+ 903              	.LFE149:
+ 905              		.section	.text.ch390_send_packet,"ax",%progbits
+ 906              		.align	1
+ 907              		.global	ch390_send_packet
+ 908              		.syntax unified
+ 909              		.thumb
+ 910              		.thumb_func
+ 912              	ch390_send_packet:
+ 913              	.LVL91:
+ 914              	.LFB150:
+ 269:Bsp/Src/ch390.c **** 
+ 270:Bsp/Src/ch390.c **** /**
+ 271:Bsp/Src/ch390.c ****  * @name ch390_send_packet
+ 272:Bsp/Src/ch390.c ****  * @brief Send packet
+ 273:Bsp/Src/ch390.c ****  * @param buff - Data to be sent
+ 274:Bsp/Src/ch390.c ****  * @param length - Less than 3k bytes.
+ 275:Bsp/Src/ch390.c ****  */
+ 276:Bsp/Src/ch390.c **** void ch390_send_packet(uint8_t *buff, uint16_t length)
+ 277:Bsp/Src/ch390.c **** {
+ 915              		.loc 1 277 1 is_stmt 1 view -0
+ 916              		.cfi_startproc
+ 917              		@ args = 0, pretend = 0, frame = 0
+ 918              		@ frame_needed = 0, uses_anonymous_args = 0
+ 919              		.loc 1 277 1 is_stmt 0 view .LVU178
+ 920 0000 10B5     		push	{r4, lr}
+ 921              	.LCFI21:
+ 922              		.cfi_def_cfa_offset 8
+ 923              		.cfi_offset 4, -8
+ 924              		.cfi_offset 14, -4
+ 925 0002 0C46     		mov	r4, r1
+ 278:Bsp/Src/ch390.c ****     // Write data to SRAM
+ 279:Bsp/Src/ch390.c ****     ch390_write_mem(buff, length);
+ 926              		.loc 1 279 5 is_stmt 1 view .LVU179
+ 927 0004 FFF7FEFF 		bl	ch390_write_mem
+ 928              	.LVL92:
+ 280:Bsp/Src/ch390.c ****     // Wait until last transmit complete
+ 281:Bsp/Src/ch390.c ****     while(ch390_read_reg(CH390_TCR) & TCR_TXREQ);
+ 929              		.loc 1 281 5 view .LVU180
+ 930              	.L57:
+ 931              		.loc 1 281 11 discriminator 1 view .LVU181
+ 932 0008 0220     		movs	r0, #2
+ 933 000a FFF7FEFF 		bl	ch390_read_reg
+ 934              	.LVL93:
+ 935 000e 10F0010F 		tst	r0, #1
+ 936 0012 F9D1     		bne	.L57
+ 282:Bsp/Src/ch390.c ****     // Set current packet length
+ 283:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_TXPLL, length & 0xff);
+ 937              		.loc 1 283 5 view .LVU182
+ 938 0014 E1B2     		uxtb	r1, r4
+ 939 0016 7C20     		movs	r0, #124
+ 940 0018 FFF7FEFF 		bl	ch390_write_reg
+ 941              	.LVL94:
+ 284:Bsp/Src/ch390.c ****     ch390_write_reg(CH390_TXPLH, (length >> 8) & 0xff);
+ 942              		.loc 1 284 5 view .LVU183
+ 943 001c 210A     		lsrs	r1, r4, #8
+ 944 001e 7D20     		movs	r0, #125
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 23
+
+
+ 945 0020 FFF7FEFF 		bl	ch390_write_reg
+ 946              	.LVL95:
+ 285:Bsp/Src/ch390.c ****     // Issue transmit request
+ 286:Bsp/Src/ch390.c ****     ch390_send_request();
+ 947              		.loc 1 286 5 view .LVU184
+ 948 0024 FFF7FEFF 		bl	ch390_send_request
+ 949              	.LVL96:
+ 287:Bsp/Src/ch390.c **** }
+ 950              		.loc 1 287 1 is_stmt 0 view .LVU185
+ 951 0028 10BD     		pop	{r4, pc}
+ 952              		.loc 1 287 1 view .LVU186
+ 953              		.cfi_endproc
+ 954              	.LFE150:
+ 956              		.section	.text.ch390_get_int_pin,"ax",%progbits
+ 957              		.align	1
+ 958              		.global	ch390_get_int_pin
+ 959              		.syntax unified
+ 960              		.thumb
+ 961              		.thumb_func
+ 963              	ch390_get_int_pin:
+ 964              	.LFB151:
+ 288:Bsp/Src/ch390.c **** 
+ 289:Bsp/Src/ch390.c **** /**
+ 290:Bsp/Src/ch390.c ****  * @name ch390_get_int_pin
+ 291:Bsp/Src/ch390.c ****  * @brief Get ch390 interrupt signal (read PC4)
+ 292:Bsp/Src/ch390.c ****  */
+ 293:Bsp/Src/ch390.c **** uint16_t ch390_get_int_pin(void)
+ 294:Bsp/Src/ch390.c **** {
+ 965              		.loc 1 294 1 is_stmt 1 view -0
+ 966              		.cfi_startproc
+ 967              		@ args = 0, pretend = 0, frame = 0
+ 968              		@ frame_needed = 0, uses_anonymous_args = 0
+ 969 0000 08B5     		push	{r3, lr}
+ 970              	.LCFI22:
+ 971              		.cfi_def_cfa_offset 8
+ 972              		.cfi_offset 3, -8
+ 973              		.cfi_offset 14, -4
+ 295:Bsp/Src/ch390.c ****     //return GPIOC->IDR & GPIO_PIN_4;
+ 296:Bsp/Src/ch390.c ****     return HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_4);
+ 974              		.loc 1 296 5 view .LVU188
+ 975              		.loc 1 296 12 is_stmt 0 view .LVU189
+ 976 0002 1021     		movs	r1, #16
+ 977 0004 0148     		ldr	r0, .L61
+ 978 0006 FFF7FEFF 		bl	HAL_GPIO_ReadPin
+ 979              	.LVL97:
+ 297:Bsp/Src/ch390.c **** }
+ 980              		.loc 1 297 1 view .LVU190
+ 981 000a 08BD     		pop	{r3, pc}
+ 982              	.L62:
+ 983              		.align	2
+ 984              	.L61:
+ 985 000c 00080240 		.word	1073874944
+ 986              		.cfi_endproc
+ 987              	.LFE151:
+ 989              		.section	.text.ch390_read_mem,"ax",%progbits
+ 990              		.align	1
+ 991              		.global	ch390_read_mem
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 24
+
+
+ 992              		.syntax unified
+ 993              		.thumb
+ 994              		.thumb_func
+ 996              	ch390_read_mem:
+ 997              	.LVL98:
+ 998              	.LFB152:
+ 298:Bsp/Src/ch390.c **** 
+ 299:Bsp/Src/ch390.c **** /**
+ 300:Bsp/Src/ch390.c ****  * @name ch390_read_mem
+ 301:Bsp/Src/ch390.c ****  * @brief Read data from RX SRAM
+ 302:Bsp/Src/ch390.c ****  * @param data - Data buffer
+ 303:Bsp/Src/ch390.c ****  * @param length - Length to read
+ 304:Bsp/Src/ch390.c ****  */
+ 305:Bsp/Src/ch390.c **** void ch390_read_mem(uint8_t *data, int length)
+ 306:Bsp/Src/ch390.c **** {
+ 999              		.loc 1 306 1 is_stmt 1 view -0
+ 1000              		.cfi_startproc
+ 1001              		@ args = 0, pretend = 0, frame = 0
+ 1002              		@ frame_needed = 0, uses_anonymous_args = 0
+ 1003              		.loc 1 306 1 is_stmt 0 view .LVU192
+ 1004 0000 70B5     		push	{r4, r5, r6, lr}
+ 1005              	.LCFI23:
+ 1006              		.cfi_def_cfa_offset 16
+ 1007              		.cfi_offset 4, -16
+ 1008              		.cfi_offset 5, -12
+ 1009              		.cfi_offset 6, -8
+ 1010              		.cfi_offset 14, -4
+ 1011 0002 0646     		mov	r6, r0
+ 1012 0004 0D46     		mov	r5, r1
+ 307:Bsp/Src/ch390.c ****     int i;
+ 1013              		.loc 1 307 5 is_stmt 1 view .LVU193
+ 308:Bsp/Src/ch390.c ****     ch390_cs(0);
+ 1014              		.loc 1 308 5 view .LVU194
+ 1015 0006 0022     		movs	r2, #0
+ 1016 0008 4FF40061 		mov	r1, #2048
+ 1017              	.LVL99:
+ 1018              		.loc 1 308 5 is_stmt 0 view .LVU195
+ 1019 000c 0A48     		ldr	r0, .L67
+ 1020              	.LVL100:
+ 1021              		.loc 1 308 5 view .LVU196
+ 1022 000e FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 1023              	.LVL101:
+ 309:Bsp/Src/ch390.c ****     ch390_spi_exchange_byte(OPC_MEM_READ);
+ 1024              		.loc 1 309 5 is_stmt 1 view .LVU197
+ 1025 0012 7220     		movs	r0, #114
+ 1026 0014 FFF7FEFF 		bl	ch390_spi_exchange_byte
+ 1027              	.LVL102:
+ 310:Bsp/Src/ch390.c **** 
+ 311:Bsp/Src/ch390.c ****     for (i = 0; i < length; i++)
+ 1028              		.loc 1 311 5 view .LVU198
+ 1029              		.loc 1 311 12 is_stmt 0 view .LVU199
+ 1030 0018 0024     		movs	r4, #0
+ 1031              		.loc 1 311 5 view .LVU200
+ 1032 001a 04E0     		b	.L64
+ 1033              	.LVL103:
+ 1034              	.L65:
+ 312:Bsp/Src/ch390.c ****     {
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 25
+
+
+ 313:Bsp/Src/ch390.c ****         data[i] = ch390_spi_dummy_read();
+ 1035              		.loc 1 313 9 is_stmt 1 view .LVU201
+ 1036              		.loc 1 313 19 is_stmt 0 view .LVU202
+ 1037 001c 0020     		movs	r0, #0
+ 1038 001e FFF7FEFF 		bl	ch390_spi_exchange_byte
+ 1039              	.LVL104:
+ 1040              		.loc 1 313 17 discriminator 1 view .LVU203
+ 1041 0022 3055     		strb	r0, [r6, r4]
+ 311:Bsp/Src/ch390.c ****     {
+ 1042              		.loc 1 311 30 is_stmt 1 discriminator 3 view .LVU204
+ 1043 0024 0134     		adds	r4, r4, #1
+ 1044              	.LVL105:
+ 1045              	.L64:
+ 311:Bsp/Src/ch390.c ****     {
+ 1046              		.loc 1 311 19 discriminator 1 view .LVU205
+ 1047 0026 AC42     		cmp	r4, r5
+ 1048 0028 F8DB     		blt	.L65
+ 314:Bsp/Src/ch390.c ****     }
+ 315:Bsp/Src/ch390.c ****     ch390_cs(1);
+ 1049              		.loc 1 315 5 view .LVU206
+ 1050 002a 0122     		movs	r2, #1
+ 1051 002c 4FF40061 		mov	r1, #2048
+ 1052 0030 0148     		ldr	r0, .L67
+ 1053 0032 FFF7FEFF 		bl	HAL_GPIO_WritePin
+ 1054              	.LVL106:
+ 316:Bsp/Src/ch390.c **** }
+ 1055              		.loc 1 316 1 is_stmt 0 view .LVU207
+ 1056 0036 70BD     		pop	{r4, r5, r6, pc}
+ 1057              	.LVL107:
+ 1058              	.L68:
+ 1059              		.loc 1 316 1 view .LVU208
+ 1060              		.align	2
+ 1061              	.L67:
+ 1062 0038 000C0240 		.word	1073875968
+ 1063              		.cfi_endproc
+ 1064              	.LFE152:
+ 1066              		.section	.text.ch390_receive_packet,"ax",%progbits
+ 1067              		.align	1
+ 1068              		.global	ch390_receive_packet
+ 1069              		.syntax unified
+ 1070              		.thumb
+ 1071              		.thumb_func
+ 1073              	ch390_receive_packet:
+ 1074              	.LVL108:
+ 1075              	.LFB153:
+ 317:Bsp/Src/ch390.c **** 
+ 318:Bsp/Src/ch390.c **** /**
+ 319:Bsp/Src/ch390.c ****  * @name ch390_receive_packet
+ 320:Bsp/Src/ch390.c ****  * @brief Receive packet
+ 321:Bsp/Src/ch390.c ****  * @param buff - Size equal to CH390_PKT_MAX
+ 322:Bsp/Src/ch390.c ****  * @param rx_status - Output abnormal status while receiving packet.
+ 323:Bsp/Src/ch390.c ****  *                    It has the same meaning as RSR(06h).
+ 324:Bsp/Src/ch390.c ****  * @return Packet length
+ 325:Bsp/Src/ch390.c ****  */
+ 326:Bsp/Src/ch390.c **** uint32_t ch390_receive_packet(uint8_t *buff, uint8_t *rx_status)
+ 327:Bsp/Src/ch390.c **** {
+ 1076              		.loc 1 327 1 is_stmt 1 view -0
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 26
+
+
+ 1077              		.cfi_startproc
+ 1078              		@ args = 0, pretend = 0, frame = 8
+ 1079              		@ frame_needed = 0, uses_anonymous_args = 0
+ 1080              		.loc 1 327 1 is_stmt 0 view .LVU210
+ 1081 0000 70B5     		push	{r4, r5, r6, lr}
+ 1082              	.LCFI24:
+ 1083              		.cfi_def_cfa_offset 16
+ 1084              		.cfi_offset 4, -16
+ 1085              		.cfi_offset 5, -12
+ 1086              		.cfi_offset 6, -8
+ 1087              		.cfi_offset 14, -4
+ 1088 0002 82B0     		sub	sp, sp, #8
+ 1089              	.LCFI25:
+ 1090              		.cfi_def_cfa_offset 24
+ 1091 0004 0646     		mov	r6, r0
+ 1092 0006 0D46     		mov	r5, r1
+ 328:Bsp/Src/ch390.c ****     uint8_t rx_ready;
+ 1093              		.loc 1 328 5 is_stmt 1 view .LVU211
+ 329:Bsp/Src/ch390.c ****     uint16_t rx_len = 0;
+ 1094              		.loc 1 329 5 view .LVU212
+ 1095              	.LVL109:
+ 330:Bsp/Src/ch390.c **** 	uint8_t ReceiveData[4];
+ 1096              		.loc 1 330 2 view .LVU213
+ 331:Bsp/Src/ch390.c **** 
+ 332:Bsp/Src/ch390.c ****     // Check packet ready or not
+ 333:Bsp/Src/ch390.c ****     ch390_read_reg(CH390_MRCMDX);
+ 1097              		.loc 1 333 5 view .LVU214
+ 1098 0008 7020     		movs	r0, #112
+ 1099              	.LVL110:
+ 1100              		.loc 1 333 5 is_stmt 0 view .LVU215
+ 1101 000a FFF7FEFF 		bl	ch390_read_reg
+ 1102              	.LVL111:
+ 334:Bsp/Src/ch390.c ****     rx_ready = ch390_read_reg(CH390_MRCMDX);
+ 1103              		.loc 1 334 5 is_stmt 1 view .LVU216
+ 1104              		.loc 1 334 16 is_stmt 0 view .LVU217
+ 1105 000e 7020     		movs	r0, #112
+ 1106 0010 FFF7FEFF 		bl	ch390_read_reg
+ 1107              	.LVL112:
+ 335:Bsp/Src/ch390.c **** 
+ 336:Bsp/Src/ch390.c ****     // if rxbyte != 1 or 0 reset device
+ 337:Bsp/Src/ch390.c ****     if (rx_ready & CH390_PKT_ERR)
+ 1108              		.loc 1 337 5 is_stmt 1 view .LVU218
+ 1109              		.loc 1 337 8 is_stmt 0 view .LVU219
+ 1110 0014 0128     		cmp	r0, #1
+ 1111 0016 05D8     		bhi	.L77
+ 338:Bsp/Src/ch390.c ****     {
+ 339:Bsp/Src/ch390.c ****         // Reset RX FIFO pointer
+ 340:Bsp/Src/ch390.c ****         uint8_t rcr = ch390_read_reg(CH390_RCR);
+ 341:Bsp/Src/ch390.c ****         ch390_write_reg(CH390_RCR, rcr & ~RCR_RXEN); //RX disable
+ 342:Bsp/Src/ch390.c ****         ch390_write_reg(CH390_MPTRCR, 0x01);  //Reset RX FIFO pointer
+ 343:Bsp/Src/ch390.c ****         ch390_write_reg(CH390_MRRH, 0x0c);
+ 344:Bsp/Src/ch390.c ****         ch390_delay_us(1000);
+ 345:Bsp/Src/ch390.c ****         ch390_write_reg(CH390_RCR, rcr | RCR_RXEN); //RX Enable
+ 346:Bsp/Src/ch390.c ****         return 0;
+ 347:Bsp/Src/ch390.c ****     }
+ 348:Bsp/Src/ch390.c ****     if (!(rx_ready & CH390_PKT_RDY))
+ 1112              		.loc 1 348 5 is_stmt 1 view .LVU220
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 27
+
+
+ 1113              		.loc 1 348 8 is_stmt 0 view .LVU221
+ 1114 0018 10F0010F 		tst	r0, #1
+ 1115 001c 1FD1     		bne	.L78
+ 349:Bsp/Src/ch390.c ****     {
+ 350:Bsp/Src/ch390.c ****         return 0;
+ 1116              		.loc 1 350 16 view .LVU222
+ 1117 001e 0020     		movs	r0, #0
+ 1118              	.LVL113:
+ 1119              	.L69:
+ 351:Bsp/Src/ch390.c ****     }
+ 352:Bsp/Src/ch390.c **** 
+ 353:Bsp/Src/ch390.c ****     ch390_read_mem(ReceiveData, 4);
+ 354:Bsp/Src/ch390.c **** 
+ 355:Bsp/Src/ch390.c ****     *rx_status = ReceiveData[1];
+ 356:Bsp/Src/ch390.c ****     rx_len = ReceiveData[2] | (ReceiveData[3] << 8);
+ 357:Bsp/Src/ch390.c **** 
+ 358:Bsp/Src/ch390.c ****     if(rx_len <= CH390_PKT_MAX)
+ 359:Bsp/Src/ch390.c ****     {
+ 360:Bsp/Src/ch390.c ****         ch390_read_mem(buff, rx_len);
+ 361:Bsp/Src/ch390.c ****     }
+ 362:Bsp/Src/ch390.c **** 
+ 363:Bsp/Src/ch390.c ****     if ((*rx_status & 0x3f) || (rx_len > CH390_PKT_MAX))
+ 364:Bsp/Src/ch390.c ****     {
+ 365:Bsp/Src/ch390.c ****         return 0;
+ 366:Bsp/Src/ch390.c ****     }
+ 367:Bsp/Src/ch390.c ****     return rx_len;
+ 368:Bsp/Src/ch390.c **** }
+ 1120              		.loc 1 368 1 view .LVU223
+ 1121 0020 02B0     		add	sp, sp, #8
+ 1122              	.LCFI26:
+ 1123              		.cfi_remember_state
+ 1124              		.cfi_def_cfa_offset 16
+ 1125              		@ sp needed
+ 1126 0022 70BD     		pop	{r4, r5, r6, pc}
+ 1127              	.LVL114:
+ 1128              	.L77:
+ 1129              	.LCFI27:
+ 1130              		.cfi_restore_state
+ 1131              	.LBB2:
+ 340:Bsp/Src/ch390.c ****         ch390_write_reg(CH390_RCR, rcr & ~RCR_RXEN); //RX disable
+ 1132              		.loc 1 340 9 is_stmt 1 view .LVU224
+ 340:Bsp/Src/ch390.c ****         ch390_write_reg(CH390_RCR, rcr & ~RCR_RXEN); //RX disable
+ 1133              		.loc 1 340 23 is_stmt 0 view .LVU225
+ 1134 0024 0520     		movs	r0, #5
+ 1135              	.LVL115:
+ 340:Bsp/Src/ch390.c ****         ch390_write_reg(CH390_RCR, rcr & ~RCR_RXEN); //RX disable
+ 1136              		.loc 1 340 23 view .LVU226
+ 1137 0026 FFF7FEFF 		bl	ch390_read_reg
+ 1138              	.LVL116:
+ 1139 002a 0446     		mov	r4, r0
+ 1140              	.LVL117:
+ 341:Bsp/Src/ch390.c ****         ch390_write_reg(CH390_MPTRCR, 0x01);  //Reset RX FIFO pointer
+ 1141              		.loc 1 341 9 is_stmt 1 view .LVU227
+ 1142 002c 00F0FE01 		and	r1, r0, #254
+ 1143 0030 0520     		movs	r0, #5
+ 1144              	.LVL118:
+ 341:Bsp/Src/ch390.c ****         ch390_write_reg(CH390_MPTRCR, 0x01);  //Reset RX FIFO pointer
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 28
+
+
+ 1145              		.loc 1 341 9 is_stmt 0 view .LVU228
+ 1146 0032 FFF7FEFF 		bl	ch390_write_reg
+ 1147              	.LVL119:
+ 342:Bsp/Src/ch390.c ****         ch390_write_reg(CH390_MRRH, 0x0c);
+ 1148              		.loc 1 342 9 is_stmt 1 view .LVU229
+ 1149 0036 0121     		movs	r1, #1
+ 1150 0038 5520     		movs	r0, #85
+ 1151 003a FFF7FEFF 		bl	ch390_write_reg
+ 1152              	.LVL120:
+ 343:Bsp/Src/ch390.c ****         ch390_delay_us(1000);
+ 1153              		.loc 1 343 9 view .LVU230
+ 1154 003e 0C21     		movs	r1, #12
+ 1155 0040 7520     		movs	r0, #117
+ 1156 0042 FFF7FEFF 		bl	ch390_write_reg
+ 1157              	.LVL121:
+ 344:Bsp/Src/ch390.c ****         ch390_write_reg(CH390_RCR, rcr | RCR_RXEN); //RX Enable
+ 1158              		.loc 1 344 9 view .LVU231
+ 1159 0046 4FF47A70 		mov	r0, #1000
+ 1160 004a FFF7FEFF 		bl	ch390_delay_us
+ 1161              	.LVL122:
+ 345:Bsp/Src/ch390.c ****         return 0;
+ 1162              		.loc 1 345 9 view .LVU232
+ 1163 004e 44F00101 		orr	r1, r4, #1
+ 1164 0052 C9B2     		uxtb	r1, r1
+ 1165 0054 0520     		movs	r0, #5
+ 1166 0056 FFF7FEFF 		bl	ch390_write_reg
+ 1167              	.LVL123:
+ 346:Bsp/Src/ch390.c ****     }
+ 1168              		.loc 1 346 9 view .LVU233
+ 346:Bsp/Src/ch390.c ****     }
+ 1169              		.loc 1 346 16 is_stmt 0 view .LVU234
+ 1170 005a 0020     		movs	r0, #0
+ 1171 005c E0E7     		b	.L69
+ 1172              	.LVL124:
+ 1173              	.L78:
+ 346:Bsp/Src/ch390.c ****     }
+ 1174              		.loc 1 346 16 view .LVU235
+ 1175              	.LBE2:
+ 353:Bsp/Src/ch390.c **** 
+ 1176              		.loc 1 353 5 is_stmt 1 view .LVU236
+ 1177 005e 0421     		movs	r1, #4
+ 1178 0060 0DEB0100 		add	r0, sp, r1
+ 1179              	.LVL125:
+ 353:Bsp/Src/ch390.c **** 
+ 1180              		.loc 1 353 5 is_stmt 0 view .LVU237
+ 1181 0064 FFF7FEFF 		bl	ch390_read_mem
+ 1182              	.LVL126:
+ 355:Bsp/Src/ch390.c ****     rx_len = ReceiveData[2] | (ReceiveData[3] << 8);
+ 1183              		.loc 1 355 5 is_stmt 1 view .LVU238
+ 355:Bsp/Src/ch390.c ****     rx_len = ReceiveData[2] | (ReceiveData[3] << 8);
+ 1184              		.loc 1 355 29 is_stmt 0 view .LVU239
+ 1185 0068 9DF80530 		ldrb	r3, [sp, #5]	@ zero_extendqisi2
+ 355:Bsp/Src/ch390.c ****     rx_len = ReceiveData[2] | (ReceiveData[3] << 8);
+ 1186              		.loc 1 355 16 view .LVU240
+ 1187 006c 2B70     		strb	r3, [r5]
+ 356:Bsp/Src/ch390.c **** 
+ 1188              		.loc 1 356 5 is_stmt 1 view .LVU241
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 29
+
+
+ 356:Bsp/Src/ch390.c **** 
+ 1189              		.loc 1 356 25 is_stmt 0 view .LVU242
+ 1190 006e 9DF80640 		ldrb	r4, [sp, #6]	@ zero_extendqisi2
+ 356:Bsp/Src/ch390.c **** 
+ 1191              		.loc 1 356 43 view .LVU243
+ 1192 0072 9DF80730 		ldrb	r3, [sp, #7]	@ zero_extendqisi2
+ 356:Bsp/Src/ch390.c **** 
+ 1193              		.loc 1 356 12 view .LVU244
+ 1194 0076 44EA0324 		orr	r4, r4, r3, lsl #8
+ 1195              	.LVL127:
+ 358:Bsp/Src/ch390.c ****     {
+ 1196              		.loc 1 358 5 is_stmt 1 view .LVU245
+ 358:Bsp/Src/ch390.c ****     {
+ 1197              		.loc 1 358 7 is_stmt 0 view .LVU246
+ 1198 007a B4F5C06F 		cmp	r4, #1536
+ 1199 007e 08D9     		bls	.L79
+ 1200              	.L72:
+ 363:Bsp/Src/ch390.c ****     {
+ 1201              		.loc 1 363 5 is_stmt 1 view .LVU247
+ 363:Bsp/Src/ch390.c ****     {
+ 1202              		.loc 1 363 10 is_stmt 0 view .LVU248
+ 1203 0080 2B78     		ldrb	r3, [r5]	@ zero_extendqisi2
+ 363:Bsp/Src/ch390.c ****     {
+ 1204              		.loc 1 363 8 view .LVU249
+ 1205 0082 13F03F0F 		tst	r3, #63
+ 1206 0086 09D1     		bne	.L74
+ 363:Bsp/Src/ch390.c ****     {
+ 1207              		.loc 1 363 29 discriminator 1 view .LVU250
+ 1208 0088 B4F5C06F 		cmp	r4, #1536
+ 1209 008c 08D8     		bhi	.L75
+ 367:Bsp/Src/ch390.c **** }
+ 1210              		.loc 1 367 5 is_stmt 1 view .LVU251
+ 367:Bsp/Src/ch390.c **** }
+ 1211              		.loc 1 367 12 is_stmt 0 view .LVU252
+ 1212 008e 2046     		mov	r0, r4
+ 1213 0090 C6E7     		b	.L69
+ 1214              	.L79:
+ 360:Bsp/Src/ch390.c ****     }
+ 1215              		.loc 1 360 9 is_stmt 1 view .LVU253
+ 1216 0092 2146     		mov	r1, r4
+ 1217 0094 3046     		mov	r0, r6
+ 1218 0096 FFF7FEFF 		bl	ch390_read_mem
+ 1219              	.LVL128:
+ 1220 009a F1E7     		b	.L72
+ 1221              	.L74:
+ 365:Bsp/Src/ch390.c ****     }
+ 1222              		.loc 1 365 16 is_stmt 0 view .LVU254
+ 1223 009c 0020     		movs	r0, #0
+ 1224 009e BFE7     		b	.L69
+ 1225              	.L75:
+ 1226 00a0 0020     		movs	r0, #0
+ 1227 00a2 BDE7     		b	.L69
+ 1228              		.cfi_endproc
+ 1229              	.LFE153:
+ 1231              		.text
+ 1232              	.Letext0:
+ 1233              		.file 2 "D:/toolchain/mcu/arm-gnu-toolchain-13.3.rel1-mingw-w64-i686-arm-none-eabi/arm-none-eabi/i
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 30
+
+
+ 1234              		.file 3 "D:/toolchain/mcu/arm-gnu-toolchain-13.3.rel1-mingw-w64-i686-arm-none-eabi/arm-none-eabi/i
+ 1235              		.file 4 "Drivers/CMSIS/Include/core_cm4.h"
+ 1236              		.file 5 "Drivers/CMSIS/Device/ST/STM32F4xx/Include/stm32f407xx.h"
+ 1237              		.file 6 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_def.h"
+ 1238              		.file 7 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_gpio.h"
+ 1239              		.file 8 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_dma.h"
+ 1240              		.file 9 "Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h"
+ 1241              		.file 10 "Drivers/CMSIS/Device/ST/STM32F4xx/Include/system_stm32f4xx.h"
+ 1242              		.file 11 "Core/Inc/spi.h"
+ 1243              		.file 12 "Bsp/Inc/ch390.h"
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 31
+
+
+DEFINED SYMBOLS
+                            *ABS*:00000000 ch390.c
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:21     .text.ch390_spi_exchange_byte:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:26     .text.ch390_spi_exchange_byte:00000000 ch390_spi_exchange_byte
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:68     .text.ch390_spi_exchange_byte:0000002c $d
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:73     .text.ch390_write_reg:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:79     .text.ch390_write_reg:00000000 ch390_write_reg
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:136    .text.ch390_write_reg:0000003c $d
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:142    .text.ch390_delay_us:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:148    .text.ch390_delay_us:00000000 ch390_delay_us
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:187    .text.ch390_delay_us:00000020 $d
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:194    .text.ch390_software_reset:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:200    .text.ch390_software_reset:00000000 ch390_software_reset
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:240    .text.ch390_read_reg:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:246    .text.ch390_read_reg:00000000 ch390_read_reg
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:298    .text.ch390_read_reg:00000030 $d
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:303    .text.ch390_get_link_status:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:309    .text.ch390_get_link_status:00000000 ch390_get_link_status
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:335    .text.ch390_get_int_status:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:341    .text.ch390_get_int_status:00000000 ch390_get_int_status
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:374    .text.ch390_get_vendor_id:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:380    .text.ch390_get_vendor_id:00000000 ch390_get_vendor_id
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:416    .text.ch390_get_product_id:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:422    .text.ch390_get_product_id:00000000 ch390_get_product_id
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:458    .text.ch390_get_mac:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:464    .text.ch390_get_mac:00000000 ch390_get_mac
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:518    .text.ch390_write_phy:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:524    .text.ch390_write_phy:00000000 ch390_write_phy
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:582    .text.ch390_set_phy_mode:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:588    .text.ch390_set_phy_mode:00000000 ch390_set_phy_mode
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:656    .text.ch390_set_multicast:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:662    .text.ch390_set_multicast:00000000 ch390_set_multicast
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:714    .rodata.ch390_default_config.str1.4:00000000 $d
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:718    .text.ch390_default_config:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:724    .text.ch390_default_config:00000000 ch390_default_config
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:791    .text.ch390_default_config:00000050 $d
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:796    .text.ch390_write_mem:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:802    .text.ch390_write_mem:00000000 ch390_write_mem
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:865    .text.ch390_write_mem:00000038 $d
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:870    .text.ch390_send_request:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:876    .text.ch390_send_request:00000000 ch390_send_request
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:906    .text.ch390_send_packet:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:912    .text.ch390_send_packet:00000000 ch390_send_packet
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:957    .text.ch390_get_int_pin:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:963    .text.ch390_get_int_pin:00000000 ch390_get_int_pin
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:985    .text.ch390_get_int_pin:0000000c $d
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:990    .text.ch390_read_mem:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:996    .text.ch390_read_mem:00000000 ch390_read_mem
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:1062   .text.ch390_read_mem:00000038 $d
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:1067   .text.ch390_receive_packet:00000000 $t
+C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s:1073   .text.ch390_receive_packet:00000000 ch390_receive_packet
+
+UNDEFINED SYMBOLS
+HAL_SPI_TransmitReceive
+hspi2
+HAL_GPIO_WritePin
+HAL_SPI_Transmit
+ARM GAS  C:\Users\lzt404\AppData\Local\Temp\ccbsiC8n.s 			page 32
+
+
+SystemCoreClock
+HAL_GPIO_ReadPin

@@ -1,0 +1,45 @@
+{
+    "tasks": [
+        {
+            "label": "rebuild stm32",
+            "type": "shell",
+            "command": "make clean;make -j15",
+            "args": [],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "clean stm32",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "clean"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "build stm32",
+            "type": "shell",
+            "command": "make -j15",
+            "args": [],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "flash stm32",
+            "type": "shell",
+            "command": "make",
+            "args": [
+                "flash"
+            ]
+        }
+    ],
+    "version": "2.0.0"
+}
