@@ -27,6 +27,7 @@
 #include "ch390.h"
 #include <stdio.h>
 #include <string.h>
+#include "my_macro.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,7 +54,9 @@
 /* USER CODE BEGIN PV */
 uint8_t uart1_tx_buf[128];
 // phy link status
-uint8_t phy_linked = 0;
+uint8_t CH390_1_phy_linked = 0;
+uint8_t CH390_2_phy_linked = 0;
+uint8_t CH390_3_phy_linked = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -66,24 +69,24 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 void dwt_delay_init(void)
 {
-    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // ä½¿èƒ½DWT
-    DWT->CYCCNT = 0;                                // å¤ä½è®¡æ•°å™¨
-    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            // ä½¿èƒ½è®¡æ•°
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // Ê¹ÄÜDWT
+    DWT->CYCCNT = 0;                                // ¸´Î»¼ÆÊýÆ÷
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            // Ê¹ÄÜ¼ÆÊý
 }
 
 /**
  * @name ch390_print_info
  * @brief Read and print chip's ID and MAC address
  */
-void ch390_print_info()
+void ch390_print_info(CH390_DEVICE_T dev)
 {
   uint8_t i;
   uint8_t mac_addr[6];
-  uint16_t vid = ch390_get_vendor_id();
-  uint16_t pid = ch390_get_product_id();
+  uint16_t vid = ch390_get_vendor_id(dev);
+  uint16_t pid = ch390_get_product_id(dev);
   xprintf("ID: %04x%04x\r\n", vid, pid);
 
-  ch390_get_mac(mac_addr);
+  ch390_get_mac(CH390_DEVICE_1, mac_addr);
   xprintf("MAC: ");
   for (i = 0; i < 6; i++)
   {
@@ -95,15 +98,24 @@ void ch390_print_info()
 // Random packet data for send test
 #define TEST_DATA_LEN 600
 #define CH390_PKT_MAX   1536    /* Received packet max size */
-uint8_t packet_data[TEST_DATA_LEN];
-uint8_t receive_buff[CH390_PKT_MAX];
+uint8_t ch390_1_packet_data[TEST_DATA_LEN];
+uint8_t ch390_1_receive_buff[CH390_PKT_MAX];
+
+uint8_t ch390_2_packet_data[TEST_DATA_LEN];
+uint8_t ch390_2_receive_buff[CH390_PKT_MAX];
+
+uint8_t ch390_3_packet_data[TEST_DATA_LEN];
+uint8_t ch390_3_receive_buff[CH390_PKT_MAX];
+
 void init_packet_data()
 {
-    int i;
-    for(i = 0; i < TEST_DATA_LEN; i++)
-    {
-        packet_data[i] = i;
-    }
+  int i;
+  for(i = 0; i < TEST_DATA_LEN; i++)
+  {
+    ch390_1_packet_data[i] = i;
+    ch390_2_packet_data[i] = i;
+    ch390_3_packet_data[i] = i;
+  }
 }
 
 void print_packet(uint8_t *buff, uint16_t length)
@@ -128,16 +140,16 @@ void print_packet(uint8_t *buff, uint16_t length)
  * @name ch390_int_handler
  * @brief Handle CH390 interrupt events, include packet receive
  */
-void ch390_int_handler()
+void ch390_int_handler(CH390_DEVICE_T dev)
 {
-  uint8_t int_status = ch390_get_int_status();
+  uint8_t int_status = ch390_get_int_status(dev);
   // Link status changed
   if(int_status & ISR_LNKCHG)
   {
     HAL_Delay(65);
-    phy_linked = ch390_get_link_status();
-    xprintf("Link status: %d\r\n", phy_linked);
-    ch390_write_reg(CH390_ISR, ISR_LNKCHG);
+    CH390_1_phy_linked = ch390_get_link_status(dev);
+    xprintf("Link status: %d\r\n", CH390_1_phy_linked);
+    ch390_write_reg(dev, CH390_ISR, ISR_LNKCHG);
   }
   // Receive overflow
   if(int_status & ISR_ROS) 
@@ -145,11 +157,23 @@ void ch390_int_handler()
     xprintf("Receive overflow\r\n");
     uint8_t rx_status = 0;
     uint32_t length = 0;
-    while((length = ch390_receive_packet(receive_buff, &rx_status)) != 0)
-    {
-      // printf("Rx: %d\r\n", length);
-      print_packet(receive_buff, length);
-    }
+      while((length = ch390_receive_packet(dev, 
+        dev == CH390_DEVICE_1 ? ch390_1_receive_buff : 
+        dev == CH390_DEVICE_2 ? ch390_2_receive_buff : 
+        ch390_3_receive_buff, 
+        &rx_status)) != 0)
+      {
+          if(dev == CH390_DEVICE_1) {
+              xprintf("dev 1 Rx: %lu\r\n", length);
+              print_packet(ch390_1_receive_buff, length);
+          } else if(dev == CH390_DEVICE_2) {
+              xprintf("dev 2 Rx: %lu\r\n", length);
+              print_packet(ch390_2_receive_buff, length);
+          } else if(dev == CH390_DEVICE_3) {
+              xprintf("dev 3 Rx: %lu\r\n", length);
+              print_packet(ch390_3_receive_buff, length);
+          }
+      }
   }
   // Receive overflow counter overflow
   if(int_status & ISR_ROO) xprintf("Overflow counter overflow\r\n");
@@ -164,11 +188,22 @@ void ch390_int_handler()
        * and cause overflow. */
       uint8_t rx_status = 0;
       uint32_t length = 0;
-      while((length = ch390_receive_packet(receive_buff, &rx_status)) != 0)
+      while((length = ch390_receive_packet(dev, 
+        dev == CH390_DEVICE_1 ? ch390_1_receive_buff : 
+        dev == CH390_DEVICE_2 ? ch390_2_receive_buff : 
+        ch390_3_receive_buff, 
+        &rx_status)) != 0)
       {
-          /* Notice, the last 4 bytes of the received data are CRC */
-          // printf("Rx: %d\r\n", length);
-          print_packet(receive_buff, length);
+          if(dev == CH390_DEVICE_1) {
+              xprintf("dev 1 Rx: %lu\r\n", length);
+              print_packet(ch390_1_receive_buff, length);
+          } else if(dev == CH390_DEVICE_2) {
+              xprintf("dev 2 Rx: %lu\r\n", length);
+              print_packet(ch390_2_receive_buff, length);
+          } else if(dev == CH390_DEVICE_3) {
+              xprintf("dev 3 Rx: %lu\r\n", length);
+              print_packet(ch390_3_receive_buff, length);
+          }
       }
   }
 }
@@ -207,11 +242,11 @@ int main(void)
   MX_USART1_UART_Init();
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
-  ch390_software_reset();
+  ch390_software_reset(CH390_DEVICE_1);
   HAL_Delay(10);
-  ch390_default_config();
-  ch390_print_info();
-  init_packet_data(); 
+  ch390_default_config(CH390_DEVICE_1);
+  ch390_print_info(CH390_DEVICE_1);
+  init_packet_data(CH390_DEVICE_1); 
 
   //ch390_send_packet(packet_data, TEST_DATA_LEN);
 
@@ -224,17 +259,17 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    if(ch390_get_int_pin())
+    for(CH390_DEVICE_T i = CH390_DEVICE_1; i < CH390_DEVICE_NUM; i ++)
     {
-      ch390_int_handler();
+      if(ch390_get_int_pin(i))
+      {
+        ch390_int_handler(i);
+      }
+      if(CH390_PHY_LINKED(i))
+      {
+        ch390_send_packet(i, CH390_PACKET_DATA(i), TEST_DATA_LEN);
+      }
     }
-
-    if(phy_linked)
-    {
-  //    xprintf("ok o\n");
-      ch390_send_packet(packet_data, TEST_DATA_LEN);
-    }
-    
   }
   /* USER CODE END 3 */
 }

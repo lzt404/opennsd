@@ -4,186 +4,38 @@
 #include "main.h"
 #include "gpio.h"
 #include "spi.h"
+#include "ch390_reg.h"
 
-/********************************************************************
- * Register definition
- * 
- * There are some differences between the register definitions of
- * CH390H and CH390L
- */
-#define CH390_INTERFACE_SPI
- #ifdef CH390_INTERFACE_SPI
- #define CH390_NCR       0x00
-     #define NCR_WAKEEN      (1<<6) // Enable wakeup function
-     #define NCR_FDX         (1<<3) // Duplex mode of the internal PHY
-     #define NCR_LBK_MAC     (1<<1) // MAC loop-back
-     #define NCR_RST         (1<<0) // Softwate reset
- #define CH390_NSR       0x01
-     #define NSR_SPEED       (1<<7) // Speed of internal PHY
-     #define NSR_LINKST      (1<<6) // Link status of internal PHY
-     #define NSR_WAKEST      (1<<5) // Wakeup event status
-     #define NSR_TX2END      (1<<3) // Tx packet B complete status
-     #define NSR_TX1END      (1<<2) // Tx packet A complete status
-     #define NSR_RXOV        (1<<1) // Rx fifo overflow
-     #define NSR_RXRDY       (1<<0)
- #define CH390_TCR       0x02
-     #define TCR_TJDIS       (1<<6) // Transmit jabber timer
-     #define TCR_PAD_DIS2    (1<<4) // PAD appends for packet B
-     #define TCR_CRC_DIS2    (1<<3) // CRC appends for packet B
-     #define TCR_PAD_DIS1    (1<<2) // PAD appends for packet A
-     #define TCR_CRC_DIS1    (1<<1) // CRC appends for packet A
-     #define TCR_TXREQ       (1<<0) // Tx request
- #define CH390_TSRA      0x03
- #define CH390_TSRB      0x04
-     #define TSR_TJTO        (1<<7) // Transmit jabber time out
-     #define TSR_LC          (1<<6) // Loss of carrier
-     #define TSR_NC          (1<<5) // No carrier
-     #define TSR_LCOL        (1<<4) // Late collision
-     #define TSR_COL         (1<<3) // Collision packet
-     #define TSR_EC          (1<<2) // Excessive collision
- #define CH390_RCR       0x05
-     #define RCR_DEFAULT     0x00   // Default settings
-     #define RCR_WTDIS       (1<<6) // Disable 2048 bytes watch dog
-     #define RCR_DIS_CRC     (1<<4) // Discard CRC error packet
-     #define RCR_ALL         (1<<3) // Pass all multicast
-     #define RCR_RUNT        (1<<2) // Pass runt packet
-     #define RCR_PRMSC       (1<<1) // Promiscuous mode
-     #define RCR_RXEN        (1<<0) // Enable RX
- #define CH390_RSR       0x06
-     #define RSR_RF          (1<<7) // Rnt frame
-     #define RSR_MF          (1<<6) // Multicast frame
-     #define RSR_LCS         (1<<5) // Late collision seen
-     #define RSR_RWTO        (1<<4) // Receive watchdog time-out
-     #define RSR_PLE         (1<<3) // Physical layer error
-     #define RSR_AE          (1<<2) // Alignment error
-     #define RSR_CE          (1<<1) // CRC error
-     #define RSR_FOE         (1<<0) // FIFO overflow error
- #define CH390_ROCR      0x07
- #define CH390_BPTR      0x08
- #define CH390_FCTR      0x09
-     #define FCTR_HWOT(ot)   (( ot & 0xf ) << 4)
-     #define FCTR_LWOT(ot)   ( ot & 0xf )
- #define CH390_FCR       0x0A
- #define CH390_EPCR      0x0B
-     #define EPCR_REEP       (1<<5) // Reload EEPROM
-     #define EPCR_EPOS       (1<<3) // EEPROM or PHY operation select
-     #define EPCR_ERPRR      (1<<2) // EEPROM or PHY read command
-     #define EPCR_ERPRW      (1<<1) // EEPROM or PHY write command
-     #define EPCR_ERRE       (1<<0) // EEPROM or PHY access status
- #define CH390_EPAR      0x0C
- #define CH390_EPDRL     0x0D
- #define CH390_EPDRH     0x0E
- #define CH390_WCR       0x0F
-     #define WCR_LINKEN      (1<<5) // Link status change wakeup
-     #define WCR_SAMPLEEN    (1<<4) // Sample frame wakeup
-     #define WCR_MAGICEN     (1<<3) // Magic packet wakeup
-     #define WCR_LINKST      (1<<2) // Link status change event
-     #define WCR_SAMPLEST    (1<<1) // Sample frame event
-     #define WCR_MAGICST     (1<<0) // Magic packet event
- #define CH390_PAR       0x10
- #define CH390_MAR       0x16
- #define CH390_GPCR      0x1E
- #define CH390_GPR       0x1F
- #define CH390_TRPAL     0x22
- #define CH390_TRPAH     0x23
- #define CH390_RWPAL     0x24
- #define CH390_RWPAH     0x25
- #define CH390_VIDL      0x28
- #define CH390_VIDH      0x29
- #define CH390_PIDL      0x2A
- #define CH390_PIDH      0x2B
- #define CH390_CHIPR     0x2C
- #define CH390_TCR2      0x2D
- #define CH390_ATCR      0x30
- #define CH390_TCSCR     0x31
-     #define TCSCR_ALL         0x1F
-     #define TCSCR_IPv6TCPCSE  (1<<4) // IPv6 TCP checksum generation
-     #define TCSCR_IPv6UDPCSE  (1<<3) // IPv6 UDP checksum generation
-     #define TCSCR_UDPCSE      (1<<2) // UDP checksum generation
-     #define TCSCR_TCPCSE      (1<<1) // TCP checksum generation
-     #define TCSCR_IPCSE       (1<<0) // IP checksum generation
- #define CH390_RCSCSR    0x32
-     #define RCSCSR_UDPS     (1<<7) // UDP checksum status
-     #define RCSCSR_TCPS     (1<<6) // TCP checksum status
-     #define RCSCSR_IPS      (1<<5) // IP checksum status
-     #define RCSCSR_UDPP     (1<<4) // UDP packet of current received packet
-     #define RCSCSR_TCPP     (1<<3) // TCP packet of current received packet
-     #define RCSCSR_IPP      (1<<2) // IP packet of current received packet
-     #define RCSCSR_RCSEN    (1<<1) // Receive checksum checking enable
-     #define RCSCSR_DCSE     (1<<0) // Discard checksum error packet
- #define CH390_MPAR      0x33
- #define CH390_SBCR      0x38
- #define CH390_INTCR     0x39
-     #define INCR_TYPE_OD    0x02
-     #define INCR_TYPE_PP    0x00
-     #define INCR_POL_L      0x01
-     #define INCR_POL_H      0x00
- #define CH390_ALNCR     0x4A
- #define CH390_SCCR      0x50
- #define CH390_RSCCR     0x51
- #define CH390_RLENCR    0x52
- #define CH390_BCASTCR   0x53
- #define CH390_INTCKCR   0x54
- #define CH390_MPTRCR    0x55
- #define CH390_MLEDCR    0x57
- #define CH390_MRCMDX    0x70
- #define CH390_MRCMDX1   0x71
- #define CH390_MRCMD     0x72
- #define CH390_MRRL      0x74
- #define CH390_MRRH      0x75
- #define CH390_MWCMDX    0x76
- #define CH390_MWCMD     0x78
- #define CH390_MWRL      0x7A
- #define CH390_MWRH      0x7B
- #define CH390_TXPLL     0x7C
- #define CH390_TXPLH     0x7D
- #define CH390_ISR       0x7E
-     #define ISR_LNKCHG      (1<<5)  // Link status change
-     #define ISR_ROO         (1<<3)  // Receive overflow counter overflow
-     #define ISR_ROS         (1<<2)  // Receive overflow
-     #define ISR_PT          (1<<1)  // Packet transmitted
-     #define ISR_PR          (1<<0)  // Packet received
- #define CH390_IMR       0x7F
-     #define IMR_NONE        0x00    // Disable all interrupt
-     #define IMR_ALL         0xFF    // Enable all interrupt
-     #define IMR_PAR         (1<<7)  // Pointer auto-return mode
-     #define IMR_LNKCHGI     (1<<5)  // Enable link status change interrupt
-     #define IMR_UDRUNI      (1<<4)  // Enable transmit under-run interrupt
-     #define IMR_ROOI        (1<<3)  // Enable receive overflow counter overflow interrupt
-     #define IMR_ROI         (1<<2)  // Enable receive overflow interrupt
-     #define IMR_PTI         (1<<1)  // Enable packet transmitted interrupt
-     #define IMR_PRI         (1<<0)  // Enable packet received interrupt
- 
- // SPI commands
- #define OPC_REG_W       0x80  // Register Write
- #define OPC_REG_R       0x00  // Register Read
- #define OPC_MEM_DMY_R   0x70  // Memory Dummy Read
- #define OPC_MEM_WRITE   0xF8  // Memory Write
- #define OPC_MEM_READ    0x72  // Memory Read
- 
-//  // GPIO
-//  #define CH390_GPIO1     0x02
-//  #define CH390_GPIO2     0x04
-//  #define CH390_GPIO3     0x08
- 
- #endif
+#define CH390_PHY_LINKED(i)   ((i) == CH390_DEVICE_1 ? CH390_1_phy_linked : \
+                               (i) == CH390_DEVICE_2 ? CH390_2_phy_linked : \
+                               CH390_3_phy_linked)
 
-//  #define CH390_INT_PIN GPIO_PIN_0  // PA0
-//  #define CH390_RST_PIN GPIO_PIN_1  // PA1
-//  #define CH390_CS_PIN GPIO_PIN_4   // PA4
-//  #define CH390_SCK_PIN GPIO_PIN_5  // PA5
-//  #define CH390_MISO_PIN GPIO_PIN_6 // PA6
-//  #define CH390_MOSI_PIN GPIO_PIN_7 // PA7
-//  #define CH390_WOL_PIN GPIO_PIN_8  // PA8
+#define CH390_PACKET_DATA(i)  ((i) == CH390_DEVICE_1 ? ch390_1_packet_data : \
+                               (i) == CH390_DEVICE_2 ? ch390_2_packet_data : \
+                               ch390_3_packet_data)
 
-#define ch390_cs(value)  HAL_GPIO_WritePin(CH390_CS1_GPIO_Port, CH390_CS1_Pin,  (value) ? GPIO_PIN_SET : GPIO_PIN_RESET)
-//#define ch390_rst(value) HAL_GPIO_WritePin(GPIOC, CH390_RST_PIN, (value) ? GPIO_PIN_SET : GPIO_PIN_RESET)
+/* ch390_device definition */ 
+typedef enum 
+{
+    CH390_DEVICE_1,   
+    CH390_DEVICE_2,  
+    CH390_DEVICE_3,
 
-void ch390_software_reset();
-void ch390_get_mac(uint8_t *mac_addr);
-uint16_t ch390_get_product_id();
-uint16_t ch390_get_vendor_id();
-/* PHY mode definition */
+    CH390_DEVICE_NUM,
+}CH390_DEVICE_T;
+
+#define ch390_cs(dev, value)  \
+    do { \
+        if ((dev) == CH390_DEVICE_1) HAL_GPIO_WritePin(CH390_CS1_GPIO_Port, CH390_CS1_Pin, (value) ? GPIO_PIN_SET : GPIO_PIN_RESET); \
+        else if ((dev) == CH390_DEVICE_2) HAL_GPIO_WritePin(CH390_CS2_GPIO_Port, CH390_CS2_Pin, (value) ? GPIO_PIN_SET : GPIO_PIN_RESET); \
+        else if ((dev) == CH390_DEVICE_3) HAL_GPIO_WritePin(CH390_CS3_GPIO_Port, CH390_CS3_Pin, (value) ? GPIO_PIN_SET : GPIO_PIN_RESET); \
+    } while(0)
+
+void ch390_software_reset(CH390_DEVICE_T dev);
+void ch390_get_mac(CH390_DEVICE_T dev, uint8_t *mac_addr);
+uint16_t ch390_get_product_id(CH390_DEVICE_T dev);
+uint16_t ch390_get_vendor_id(CH390_DEVICE_T dev);
+
 enum ch390_phy_mode
 {
     CH390_10MFD,   // 10M full-duplex
@@ -191,20 +43,23 @@ enum ch390_phy_mode
     CH390_AUTO,    // Auto negotiation
 };
 
-/* ch390_device definition */ 
-typedef enum 
-{
-    CH390_DEVICE_1,   
-    CH390_DEVICE_2,  
-    CH390_DEVICE_3, 
-}CH390_DEVICE_T;
+#define ch390_get_int_pin(dev) ( \
+    (dev) == CH390_DEVICE_1 ? HAL_GPIO_ReadPin(CH390_CS1_GPIO_Port, CH390_CS1_Pin) : \
+    (dev) == CH390_DEVICE_2 ? HAL_GPIO_ReadPin(CH390_CS2_GPIO_Port, CH390_CS2_Pin) : \
+    (dev) == CH390_DEVICE_3 ? HAL_GPIO_ReadPin(CH390_CS3_GPIO_Port, CH390_CS3_Pin) : \
+    0 \
+)
 
-void ch390_send_packet(uint8_t *buff, uint16_t length);
-uint16_t ch390_get_int_pin(void);
-uint8_t ch390_get_int_status();
-int ch390_get_link_status();
-uint32_t ch390_receive_packet(uint8_t *buff, uint8_t *rx_status);
-void ch390_write_reg(uint8_t reg, uint8_t value);
-uint8_t ch390_read_reg(uint8_t reg);
-void ch390_default_config();
+uint8_t ch390_get_int_status(CH390_DEVICE_T dev);
+
+uint8_t ch390_read_reg(CH390_DEVICE_T dev, uint8_t reg);
+void ch390_write_reg(CH390_DEVICE_T dev, uint8_t reg, uint8_t value);
+
+void ch390_default_config(CH390_DEVICE_T dev);
+
+void ch390_send_packet(CH390_DEVICE_T dev, uint8_t *buff, uint16_t length);
+uint32_t ch390_receive_packet(CH390_DEVICE_T dev, uint8_t *buff, uint8_t *rx_status);
+
+int ch390_get_link_status(CH390_DEVICE_T dev);
+
 #endif // !__CH390_H
