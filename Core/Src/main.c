@@ -74,9 +74,9 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 void dwt_delay_init(void)
 {
-    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // ???DWT
-    DWT->CYCCNT = 0;                                // ??¦Ë??????
-    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            // ??????
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; 
+    DWT->CYCCNT = 0;                                
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            
 }
 
 /**
@@ -189,7 +189,7 @@ void ch390_int_handler(CH390_DEVICE_T dev)
 
 int _write(int file, char *ptr, int len)
 {
-    // ÕâÀïÒÔ huart1 ÎªÀý
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ huart1 Îªï¿½ï¿½
     HAL_UART_Transmit(&huart1, (uint8_t*)ptr, len, 5000);
     return len;
 }
@@ -260,9 +260,9 @@ int main(void)
   xprintf("IP: %s\r\n", ip4addr_ntoa(netif_ip4_addr(&ch390_netif)));
   #endif  
 
-  // udpecho_init();
-  // tcp_client_init();
-  // tcp_server_init();
+  udpecho_init();
+  //tcp_client_init();
+  tcp_server_init();
 
   /* USER CODE END 2 */
 

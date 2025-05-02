@@ -17,6 +17,8 @@
 #include "lwip/tcp.h"
 #include "lwip/timeouts.h"
 #include "ch390.h"
+#include "gpio.h"
+#include "main.h"
 
 #if LWIP_TCP && LWIP_CALLBACK_API
 
@@ -38,7 +40,27 @@ tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
             err = tcp_write(tpcb, p->payload, p->tot_len, 1);
         }while(err != ERR_OK);
 
-
+        // 打印收到的数据内容（十六进制）
+        xprintf("TCP recv, len=%d: ", p->tot_len);
+        struct pbuf *q = p;
+        if(q->len == 3)
+        {
+            uint8_t *payload = (uint8_t *)q->payload;
+            if (payload[0] == 's' && payload[2] == 'e')
+            {
+                payload[1] -= '0';
+                HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, payload[1]);
+            }
+        }
+        
+        while (q) {
+            for (u16_t i = 0; i < q->len; i++) {
+                xprintf("%02x ", ((uint8_t*)q->payload)[i]);
+            }
+            q = q->next;
+        }
+        xprintf("\r\n");
+        
         pbuf_free(p);
         return ERR_OK;
     }
@@ -118,6 +140,9 @@ tcp_client_connected(void *arg, struct tcp_pcb *pcb, err_t err)
 {
     xprintf("Connected\r\n");
     tcp_recv(pcb, tcp_client_recv);
+    // 主动发送一条消息
+    const char *msg = "hello tcp";
+    tcp_write(pcb, msg, strlen(msg), 1);
 
     return ERR_OK;
 }
@@ -131,7 +156,7 @@ void tcp_client_init(void)
     // extern struct netif ch390_netif;
     ip4_addr_t server_ip;
     uint16_t server_port = 2200;
-    IP4_ADDR(&server_ip, 192, 168, 1, 100);
+    IP4_ADDR(&server_ip, 192, 168, 31, 149);
 
     tcp_client_pcb = tcp_new();
     if (tcp_client_pcb == NULL)
