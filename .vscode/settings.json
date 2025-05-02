@@ -9,6 +9,12 @@
         "typeinfo": "cpp",
         "ch390.h": "c",
         "spi.h": "c",
-        "type_traits": "c"
+        "type_traits": "c",
+        "ethernetif.h": "c",
+        "netif.h": "c",
+        "dhcp.h": "c",
+        "stm32f4xx_hal.h": "c",
+        "lwipopts.h": "c",
+        "opt.h": "c"
     },
 }

@@ -3,8 +3,25 @@
 
 #include "main.h"
 #include "gpio.h"
+#include "usart.h"
+#include "string.h"
 #include "spi.h"
 #include "ch390_reg.h"
+
+extern uint8_t uart1_tx_buf[1600];
+
+#define xprintf(fmt, ...) \
+    do { \
+        snprintf((char*)uart1_tx_buf, sizeof(uart1_tx_buf), fmt, ##__VA_ARGS__); \
+        HAL_UART_Transmit(&huart1, uart1_tx_buf, strlen((char*)uart1_tx_buf), 5000); \
+    } while(0)
+
+// Packet status
+#define CH390_PKT_NONE  0x00    /* No packet received */
+#define CH390_PKT_RDY   0x01    /* Packet ready to receive */
+#define CH390_PKT_ERR   0xFE    /* Un-stable states */
+#define CH390_PKT_MAX   1536    /* Received packet max size */
+#define CH390_PKT_MIN   64
 
 #define CH390_PHY_LINKED(i)   ((i) == CH390_DEVICE_1 ? CH390_1_phy_linked : \
                                (i) == CH390_DEVICE_2 ? CH390_2_phy_linked : \
@@ -35,7 +52,9 @@ void ch390_software_reset(CH390_DEVICE_T dev);
 void ch390_get_mac(CH390_DEVICE_T dev, uint8_t *mac_addr);
 uint16_t ch390_get_product_id(CH390_DEVICE_T dev);
 uint16_t ch390_get_vendor_id(CH390_DEVICE_T dev);
-
+void ch390_read_mem(CH390_DEVICE_T dev, uint8_t *data, int length);
+void ch390_send_request(CH390_DEVICE_T dev);
+void ch390_write_mem(CH390_DEVICE_T dev, uint8_t *data, int length);
 enum ch390_phy_mode
 {
     CH390_10MFD,   // 10M full-duplex
@@ -58,7 +77,10 @@ void ch390_write_reg(CH390_DEVICE_T dev, uint8_t reg, uint8_t value);
 void ch390_default_config(CH390_DEVICE_T dev);
 
 void ch390_send_packet(CH390_DEVICE_T dev, uint8_t *buff, uint16_t length);
+void ch390_drop_packet(uint16_t len);
+
 uint32_t ch390_receive_packet(CH390_DEVICE_T dev, uint8_t *buff, uint8_t *rx_status);
+
 
 int ch390_get_link_status(CH390_DEVICE_T dev);
 

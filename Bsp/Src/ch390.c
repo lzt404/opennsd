@@ -289,6 +289,25 @@ void ch390_send_packet(CH390_DEVICE_T dev, uint8_t *buff, uint16_t length)
 }
 
 /**
+ * @name ch390_drop_packet
+ * @brief Drop packet in RX SRAM if don't want to read it. This function
+ *        modify the memory data read pointer and skip specified length
+ * @param len - Skip length, length of the current packet.
+ */
+void ch390_drop_packet(uint16_t len)
+{
+    uint16_t mdr = ch390_read_reg(CH390_DEVICE_1,CH390_MRRL) | (ch390_read_reg(CH390_DEVICE_1,CH390_MRRH) << 8);
+#ifdef CH390_INTERFACE_16_BIT
+    mdr = mdr + (len + 1) / 2 * 2;
+#else
+    mdr = mdr + len;
+#endif
+    mdr = mdr < 0x4000 ? mdr : mdr - 0x3400;
+    ch390_write_reg(CH390_DEVICE_1,CH390_MRRL, mdr & 0xff);
+    ch390_write_reg(CH390_DEVICE_1,CH390_MRRH, (mdr >> 8) & 0xff);
+}
+
+/**
  * @name ch390_read_mem
  * @brief Read data from RX SRAM
  * @param data - Data buffer

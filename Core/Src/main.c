@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "rtc.h"
 #include "spi.h"
 #include "usart.h"
 #include "gpio.h"
@@ -28,11 +29,19 @@
 #include <stdio.h>
 #include <string.h>
 #include "my_macro.h"
+
+#include "netif/ethernetif.h"
+#include "lwip/timeouts.h"
+#include "lwip/dhcp.h"
+#include "lwip/prot/dhcp.h"
+#include "tcp_echo.h"
+#include "udp_echo.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+#define USE_DHCP 1
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -42,17 +51,13 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define xprintf(fmt, ...) \
-    do { \
-        snprintf((char*)uart1_tx_buf, sizeof(uart1_tx_buf), fmt, ##__VA_ARGS__); \
-        HAL_UART_Transmit(&huart1, uart1_tx_buf, strlen((char*)uart1_tx_buf), 5000); \
-    } while(0)
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint8_t uart1_tx_buf[128];
+uint8_t uart1_tx_buf[1600];
 // phy link status
 uint8_t CH390_1_phy_linked = 0;
 uint8_t CH390_2_phy_linked = 0;
@@ -69,9 +74,9 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 void dwt_delay_init(void)
 {
-    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // 使能DWT
-    DWT->CYCCNT = 0;                                // 复位计数器
-    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            // 使能计数
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; // ???DWT
+    DWT->CYCCNT = 0;                                // ??λ??????
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            // ??????
 }
 
 /**
@@ -144,68 +149,49 @@ void ch390_int_handler(CH390_DEVICE_T dev)
 {
   uint8_t int_status = ch390_get_int_status(dev);
   // Link status changed
-  if(int_status & ISR_LNKCHG)
+  if (int_status & ISR_LNKCHG)
   {
-    HAL_Delay(65);
-    CH390_1_phy_linked = ch390_get_link_status(dev);
-    xprintf("Link status: %d\r\n", CH390_1_phy_linked);
-    ch390_write_reg(dev, CH390_ISR, ISR_LNKCHG);
+      HAL_Delay(65);
+      if (ch390_get_link_status(dev))
+      {
+          printf("netif link up\r\n");
+          netif_set_link_up(&ch390_netif);
+      }
+      else
+      {
+          printf("netif link down\r\n");
+          netif_set_link_down(&ch390_netif);
+      }
+      ch390_write_reg(dev, CH390_ISR, ISR_LNKCHG);
   }
   // Receive overflow
-  if(int_status & ISR_ROS) 
+  if (int_status & ISR_ROS)
   {
-    xprintf("Receive overflow\r\n");
-    uint8_t rx_status = 0;
-    uint32_t length = 0;
-      while((length = ch390_receive_packet(dev, 
-        dev == CH390_DEVICE_1 ? ch390_1_receive_buff : 
-        dev == CH390_DEVICE_2 ? ch390_2_receive_buff : 
-        ch390_3_receive_buff, 
-        &rx_status)) != 0)
-      {
-          if(dev == CH390_DEVICE_1) {
-              xprintf("dev 1 Rx: %lu\r\n", length);
-              print_packet(ch390_1_receive_buff, length);
-          } else if(dev == CH390_DEVICE_2) {
-              xprintf("dev 2 Rx: %lu\r\n", length);
-              print_packet(ch390_2_receive_buff, length);
-          } else if(dev == CH390_DEVICE_3) {
-              xprintf("dev 3 Rx: %lu\r\n", length);
-              print_packet(ch390_3_receive_buff, length);
-          }
-      }
+      printf("Receive overflow\r\n");
+      struct ethernetif *ethernetif = ch390_netif.state;
+      do {
+          ethernetif_input(&ch390_netif);
+      } while (ethernetif->rx_len != 0);
   }
   // Receive overflow counter overflow
-  if(int_status & ISR_ROO) xprintf("Overflow counter overflow\r\n");
+  if (int_status & ISR_ROO) printf("Overflow counter overflow\r\n");
   // Packet transmitted
-//  if(int_status & ISR_PT) printf("Packet sent\r\n");
+  //    if(int_status & ISR_PT) printf("Packet sent\r\n");
   // Packet received
-  if(int_status & ISR_PR)
+  if (int_status & ISR_PR)
   {
-      /* Multiple packets may be received in a single packet receive
-       * event. So "ch390_receive_packet" should be called until the
-       * return value is 0. Otherwise data will accumulate in RX SRAM
-       * and cause overflow. */
-      uint8_t rx_status = 0;
-      uint32_t length = 0;
-      while((length = ch390_receive_packet(dev, 
-        dev == CH390_DEVICE_1 ? ch390_1_receive_buff : 
-        dev == CH390_DEVICE_2 ? ch390_2_receive_buff : 
-        ch390_3_receive_buff, 
-        &rx_status)) != 0)
-      {
-          if(dev == CH390_DEVICE_1) {
-              xprintf("dev 1 Rx: %lu\r\n", length);
-              print_packet(ch390_1_receive_buff, length);
-          } else if(dev == CH390_DEVICE_2) {
-              xprintf("dev 2 Rx: %lu\r\n", length);
-              print_packet(ch390_2_receive_buff, length);
-          } else if(dev == CH390_DEVICE_3) {
-              xprintf("dev 3 Rx: %lu\r\n", length);
-              print_packet(ch390_3_receive_buff, length);
-          }
-      }
+      struct ethernetif *ethernetif = ch390_netif.state;
+      do {
+          ethernetif_input(&ch390_netif);
+      } while (ethernetif->rx_len != 0);
   }
+}
+
+int _write(int file, char *ptr, int len)
+{
+    // 这里以 huart1 为例
+    HAL_UART_Transmit(&huart1, (uint8_t*)ptr, len, 5000);
+    return len;
 }
 
 /* USER CODE END 0 */
@@ -241,6 +227,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_SPI2_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
   ch390_software_reset(CH390_DEVICE_1);
   HAL_Delay(10);
@@ -248,7 +235,34 @@ int main(void)
   ch390_print_info(CH390_DEVICE_1);
   init_packet_data(CH390_DEVICE_1); 
 
-  //ch390_send_packet(packet_data, TEST_DATA_LEN);
+  struct ip4_addr ipaddr, netmask, gateway;
+  IP4_ADDR(&ipaddr, 192, 168, 31, 248);
+  IP4_ADDR(&netmask, 255, 255, 255, 0);
+  IP4_ADDR(&gateway, 192, 168, 31, 1);
+  init_lwip_netif(&ipaddr, &netmask, &gateway);
+  netif_set_link_up(&ch390_netif);
+  xprintf("netif link up\r\n");
+
+  #if USE_DHCP
+  dhcp_start(&ch390_netif);
+  struct dhcp *dhcp;
+  dhcp = netif_dhcp_data(&ch390_netif);
+  // Wait untill dhcp complete
+  while (dhcp->state != DHCP_STATE_BOUND)
+  {
+      if (ch390_get_int_pin(CH390_DEVICE_1))
+      {
+        ch390_int_handler(CH390_DEVICE_1);
+      }
+      sys_check_timeouts();
+  }
+  xprintf("DHCP complete\r\n");
+  xprintf("IP: %s\r\n", ip4addr_ntoa(netif_ip4_addr(&ch390_netif)));
+  #endif  
+
+  // udpecho_init();
+  // tcp_client_init();
+  // tcp_server_init();
 
   /* USER CODE END 2 */
 
@@ -259,17 +273,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    for(CH390_DEVICE_T i = CH390_DEVICE_1; i < CH390_DEVICE_NUM; i ++)
+    if (ch390_get_int_pin(CH390_DEVICE_1))
     {
-      if(ch390_get_int_pin(i))
-      {
-        ch390_int_handler(i);
-      }
-      if(CH390_PHY_LINKED(i))
-      {
-        ch390_send_packet(i, CH390_PACKET_DATA(i), TEST_DATA_LEN);
-      }
+      ch390_int_handler(CH390_DEVICE_1);
     }
+    sys_check_timeouts();
   }
   /* USER CODE END 3 */
 }
@@ -291,8 +299,9 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 4;
