@@ -7,7 +7,7 @@
 #include "string.h"
 #include "spi.h"
 #include "ch390_reg.h"
-
+#include <stdio.h>
 extern uint8_t uart1_tx_buf[1600];
 
 #define xprintf(fmt, ...) \

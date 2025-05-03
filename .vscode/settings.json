@@ -15,6 +15,9 @@
         "dhcp.h": "c",
         "stm32f4xx_hal.h": "c",
         "lwipopts.h": "c",
-        "opt.h": "c"
+        "opt.h": "c",
+        "stdint.h": "c",
+        "ch390_reg.h": "c",
+        "shell.h": "c"
     },
 }
