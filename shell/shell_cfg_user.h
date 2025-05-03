@@ -13,8 +13,10 @@
 #define __SHELL_CFG_USER_H__
 
 #include "stm32f4xx_hal.h"
-
+#define SHELL_USING_CMD_EXPORT 1
 #define SHELL_TASK_WHILE 0
+
+#define     SHELL_DEFAULT_USER          "lzt404"
 
 /**
  * @brief 支持shell尾行模式

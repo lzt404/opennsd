@@ -257,11 +257,11 @@ int main(void)
   // Wait untill dhcp complete
   while (dhcp->state != DHCP_STATE_BOUND)
   {
-      if (ch390_get_int_pin(CH390_DEVICE_1))
-      {
-        ch390_int_handler(CH390_DEVICE_1);
-      }
-      sys_check_timeouts();
+    if (ch390_get_int_pin(CH390_DEVICE_1))
+    {
+      ch390_int_handler(CH390_DEVICE_1);
+    }
+    sys_check_timeouts();
   }
   xprintf("DHCP complete\r\n");
   xprintf("IP: %s\r\n", ip4addr_ntoa(netif_ip4_addr(&ch390_netif)));

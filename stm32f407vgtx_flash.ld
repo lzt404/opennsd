@@ -100,15 +100,11 @@ SECTIONS
     . = ALIGN(4);
     *(.rodata)         /* .rodata sections (constants, strings, etc.) */
     *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
+    _shell_command_start = .;
+    KEEP (*(shellCommand))
+    _shell_command_end = .;
     . = ALIGN(4);
   } >FLASH
-
-  .shell_command :
-  {
-    _shell_command_start = .;
-    KEEP(*(.shell_command))
-    _shell_command_end = .;
-  }
 
   .ARM.extab   : { *(.ARM.extab* .gnu.linkonce.armextab.*) } >FLASH
   .ARM : {
