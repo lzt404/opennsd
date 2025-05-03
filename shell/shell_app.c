@@ -5,7 +5,7 @@
 
 int print_args_func(int argc, char *argv[])
 {
-    xprintf("%dparameter(s)\r\n", argc);
+    xprintf("%d  parameter(s)\r\n", argc);
     for (int i = 1; i < argc; i++)
     {
         xprintf("%s\r\n", argv[i]);
