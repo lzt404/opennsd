@@ -37,6 +37,8 @@
 #include "tcp_echo.h"
 #include "udp_echo.h"
 
+#include "shell_port.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,6 +60,7 @@
 
 /* USER CODE BEGIN PV */
 uint8_t uart1_tx_buf[1600];
+uint8_t recv_buf = 0;
 // phy link status
 uint8_t CH390_1_phy_linked = 0;
 uint8_t CH390_2_phy_linked = 0;
@@ -189,7 +192,7 @@ void ch390_int_handler(CH390_DEVICE_T dev)
 
 int _write(int file, char *ptr, int len)
 {
-    // 锟斤拷锟斤拷锟斤拷 huart1 为锟斤拷
+    // ?????? huart1 ???
     HAL_UART_Transmit(&huart1, (uint8_t*)ptr, len, 5000);
     return len;
 }
@@ -229,6 +232,10 @@ int main(void)
   MX_SPI2_Init();
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
+  HAL_UART_Receive_IT(&huart1, (uint8_t*)&recv_buf, 1);
+  userShellInit();
+
+
   ch390_software_reset(CH390_DEVICE_1);
   HAL_Delay(10);
   ch390_default_config(CH390_DEVICE_1);
@@ -329,7 +336,17 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    /* 判断是哪个串口触发的中断 */
+    if(huart ->Instance == USART1)
+    {
+        //调用shell处理数据的接口
+     shellHandler(&shell, recv_buf);
+        //使能串口中断接收
+     HAL_UART_Receive_IT(&huart1, (uint8_t*)&recv_buf, 1);
+    }
+}
 /* USER CODE END 4 */
 
 /**
