@@ -16,6 +16,7 @@
         "stm32f4xx_hal.h": "c",
         "lwipopts.h": "c",
         "opt.h": "c",
-        "shell_cfg_user.h": "c"
+        "shell_cfg_user.h": "c",
+        "usart.h": "c"
     },
 }

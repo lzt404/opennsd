@@ -233,13 +233,11 @@ int main(void)
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
   HAL_UART_Receive_IT(&huart1, (uint8_t*)&recv_buf, 1);
-  userShellInit();
-
-
+  
   ch390_software_reset(CH390_DEVICE_1);
   HAL_Delay(10);
   ch390_default_config(CH390_DEVICE_1);
-  ch390_print_info(CH390_DEVICE_1);
+  
   init_packet_data(CH390_DEVICE_1); 
 
   struct ip4_addr ipaddr, netmask, gateway;
@@ -248,7 +246,7 @@ int main(void)
   IP4_ADDR(&gateway, 192, 168, 31, 1);
   init_lwip_netif(&ipaddr, &netmask, &gateway);
   netif_set_link_up(&ch390_netif);
-  xprintf("netif link up\r\n");
+  //xprintf("netif link up\r\n");
 
   #if USE_DHCP
   dhcp_start(&ch390_netif);
@@ -263,10 +261,15 @@ int main(void)
     }
     sys_check_timeouts();
   }
-  xprintf("DHCP complete\r\n");
-  xprintf("IP: %s\r\n", ip4addr_ntoa(netif_ip4_addr(&ch390_netif)));
+  
   #endif  
-
+  extern Shell shell;
+  userShellInit();
+  xprintf("\r\nIP: %s\r\n", ip4addr_ntoa(netif_ip4_addr(&ch390_netif)));
+  ch390_print_info(CH390_DEVICE_1);
+  shellWriteString(&shell, "DHCP complete\r\n");
+  shellWriteString(&shell, "Enter to continue\r\n");
+  
   udpecho_init();
   //tcp_client_init();
   tcp_server_init();
