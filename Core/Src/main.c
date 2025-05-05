@@ -38,12 +38,12 @@
 #include "udp_echo.h"
 
 #include "shell_port.h"
-
+#include "shell_app.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define USE_DHCP 1
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -53,7 +53,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+#define AUTO_DHCP 0
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -82,27 +82,6 @@ void dwt_delay_init(void)
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            
 }
 
-/**
- * @name ch390_print_info
- * @brief Read and print chip's ID and MAC address
- */
-void ch390_print_info(CH390_DEVICE_T dev)
-{
-  uint8_t i;
-  uint8_t mac_addr[6];
-  uint16_t vid = ch390_get_vendor_id(dev);
-  uint16_t pid = ch390_get_product_id(dev);
-  xprintf("ID: %04x%04x\r\n", vid, pid);
-
-  ch390_get_mac(CH390_DEVICE_1, mac_addr);
-  xprintf("MAC: ");
-  for (i = 0; i < 6; i++)
-  {
-      xprintf("%02X ", mac_addr[i]);
-  }
-  xprintf("\r\n");
-}
-
 // Random packet data for send test
 #define TEST_DATA_LEN 600
 #define CH390_PKT_MAX   1536    /* Received packet max size */
@@ -128,73 +107,28 @@ void init_packet_data()
 
 void print_packet(uint8_t *buff, uint16_t length)
 {
-		int i;
-    xprintf("------------------\r\n"
-           "Packet length: %d", length);
+	int i;
+  xprintf("------------------\r\n"
+         "Packet length: %d", length);
 
-    for(i = 0; i < length; i++)
+  for(i = 0; i < length; i++)
+  {
+    if(i % 16 == 0)
     {
-        if(i % 16 == 0)
-        {
-            xprintf("\r\n%04x   ", i);
-        }
-        xprintf("%02x ", buff[i]);
+      xprintf("\r\n%04x   ", i);
     }
+    xprintf("%02x ", buff[i]);
+  }
 
-    xprintf("\r\n");
+  xprintf("\r\n");
 }
 
-/**
- * @name ch390_int_handler
- * @brief Handle CH390 interrupt events, include packet receive
- */
-void ch390_int_handler(CH390_DEVICE_T dev)
-{
-  uint8_t int_status = ch390_get_int_status(dev);
-  // Link status changed
-  if (int_status & ISR_LNKCHG)
-  {
-      HAL_Delay(65);
-      if (ch390_get_link_status(dev))
-      {
-          printf("netif link up\r\n");
-          netif_set_link_up(&ch390_netif);
-      }
-      else
-      {
-          printf("netif link down\r\n");
-          netif_set_link_down(&ch390_netif);
-      }
-      ch390_write_reg(dev, CH390_ISR, ISR_LNKCHG);
-  }
-  // Receive overflow
-  if (int_status & ISR_ROS)
-  {
-      printf("Receive overflow\r\n");
-      struct ethernetif *ethernetif = ch390_netif.state;
-      do {
-          ethernetif_input(&ch390_netif);
-      } while (ethernetif->rx_len != 0);
-  }
-  // Receive overflow counter overflow
-  if (int_status & ISR_ROO) printf("Overflow counter overflow\r\n");
-  // Packet transmitted
-  //    if(int_status & ISR_PT) printf("Packet sent\r\n");
-  // Packet received
-  if (int_status & ISR_PR)
-  {
-      struct ethernetif *ethernetif = ch390_netif.state;
-      do {
-          ethernetif_input(&ch390_netif);
-      } while (ethernetif->rx_len != 0);
-  }
-}
+
 
 int _write(int file, char *ptr, int len)
 {
-    // ?????? huart1 ???
-    HAL_UART_Transmit(&huart1, (uint8_t*)ptr, len, 5000);
-    return len;
+  HAL_UART_Transmit(&huart1, (uint8_t*)ptr, len, 5000);
+  return len;
 }
 
 /* USER CODE END 0 */
@@ -241,38 +175,39 @@ int main(void)
   init_packet_data(CH390_DEVICE_1); 
 
   struct ip4_addr ipaddr, netmask, gateway;
-  IP4_ADDR(&ipaddr, 192, 168, 31, 248);
+  IP4_ADDR(&ipaddr, 192, 168, 31, 249);
   IP4_ADDR(&netmask, 255, 255, 255, 0);
   IP4_ADDR(&gateway, 192, 168, 31, 1);
   init_lwip_netif(&ipaddr, &netmask, &gateway);
   netif_set_link_up(&ch390_netif);
-  //xprintf("netif link up\r\n");
 
-  #if USE_DHCP
-  dhcp_start(&ch390_netif);
-  struct dhcp *dhcp;
-  dhcp = netif_dhcp_data(&ch390_netif);
-  // Wait untill dhcp complete
-  while (dhcp->state != DHCP_STATE_BOUND)
-  {
-    if (ch390_get_int_pin(CH390_DEVICE_1))
-    {
-      ch390_int_handler(CH390_DEVICE_1);
-    }
-    sys_check_timeouts();
-  }
-  
-  #endif  
-  extern Shell shell;
   userShellInit();
-  xprintf("\r\nIP: %s\r\n", ip4addr_ntoa(netif_ip4_addr(&ch390_netif)));
-  ch390_print_info(CH390_DEVICE_1);
-  shellWriteString(&shell, "DHCP complete\r\n");
-  shellWriteString(&shell, "Enter to continue\r\n");
-  
-  udpecho_init();
+  uint8_t dhcp_flag;
+  #if AUTO_DHCP
+    ch390_print_info(CH390_DEVICE_1);
+    dhcp_start(&ch390_netif);
+    struct dhcp *dhcp;
+    dhcp = netif_dhcp_data(&ch390_netif);
+    // Wait untill dhcp complete
+    while (dhcp->state != DHCP_STATE_BOUND)
+    {
+      if (ch390_get_int_pin(CH390_DEVICE_1))
+      {
+        ch390_int_handler(CH390_DEVICE_1);
+      }
+      sys_check_timeouts();
+    }
+    xprintf("\r\nIP: %s\r\n", ip4addr_ntoa(netif_ip4_addr(&ch390_netif)));
+    dhcp_flag = 1 ;
+  #else
+    dhcp_flag = 0 ;    
+  #endif
+
   //tcp_client_init();
+  udpecho_init();
+  
   tcp_server_init();
+  // ping状态变量
 
   /* USER CODE END 2 */
 
@@ -287,7 +222,22 @@ int main(void)
     {
       ch390_int_handler(CH390_DEVICE_1);
     }
+    if (dhcp_flag == 0)
+    {
+      //xprintf("dhcp_flag 不好\r\n");
+      struct dhcp *dhcp;
+      dhcp = netif_dhcp_data(&ch390_netif);
+      if(dhcp->state == DHCP_STATE_BOUND)
+      {
+        xprintf("status is ok\r\n");
+        dhcp_flag = 1;
+        ch390_print_info(CH390_DEVICE_1);
+        xprintf("\r\nIP: %s\r\n", ip4addr_ntoa(netif_ip4_addr(&ch390_netif)));
+      }
+    }
+
     sys_check_timeouts();
+
   }
   /* USER CODE END 3 */
 }

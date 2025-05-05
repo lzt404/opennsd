@@ -19,6 +19,7 @@
 #include "ch390.h"
 #include "gpio.h"
 #include "main.h"
+#include "shell_port.h"
 
 #if LWIP_TCP && LWIP_CALLBACK_API
 

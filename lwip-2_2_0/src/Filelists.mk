@@ -156,7 +156,8 @@ SNMPFILES=$(LWIPDIR)/apps/snmp/snmp_asn1.c \
 	$(LWIPDIR)/apps/snmp/snmp_scalar.c \
 	$(LWIPDIR)/apps/snmp/snmp_table.c \
 	$(LWIPDIR)/apps/snmp/snmp_threadsync.c \
-	$(LWIPDIR)/apps/snmp/snmp_traps.c
+	$(LWIPDIR)/apps/snmp/snmp_traps.c \
+	
 
 # HTTPFILES: HTTP server + client
 HTTPFILES=$(LWIPDIR)/apps/http/altcp_proxyconnect.c \

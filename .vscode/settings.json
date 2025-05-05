@@ -17,6 +17,12 @@
         "lwipopts.h": "c",
         "opt.h": "c",
         "shell_cfg_user.h": "c",
-        "usart.h": "c"
+        "usart.h": "c",
+        "stdint.h": "c",
+        "shell.h": "c",
+        "my_macro.h": "c",
+        "sockets.h": "c",
+        "ping.h": "c",
+        "raw.h": "c"
     },
 }

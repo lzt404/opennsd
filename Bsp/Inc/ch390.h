@@ -80,8 +80,8 @@ void ch390_send_packet(CH390_DEVICE_T dev, uint8_t *buff, uint16_t length);
 void ch390_drop_packet(uint16_t len);
 
 uint32_t ch390_receive_packet(CH390_DEVICE_T dev, uint8_t *buff, uint8_t *rx_status);
-
-
+void ch390_print_info(CH390_DEVICE_T dev);
+void ch390_int_handler(CH390_DEVICE_T dev);
 int ch390_get_link_status(CH390_DEVICE_T dev);
 
 #endif // !__CH390_H

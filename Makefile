@@ -68,7 +68,10 @@ apps/udp_echo.c \
 Core/Src/rtc.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rtc.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rtc_ex.c \
-lwip-2_2_0/src/netif/ethernetif.c
+lwip-2_2_0/src/netif/ethernetif.c	\
+apps/net_app.c \
+$(LWIPDIR)/apps/ping/ping.c
+
 
 
 

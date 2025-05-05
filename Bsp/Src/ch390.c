@@ -1,5 +1,9 @@
 #include "ch390.h"
-
+#include "netif/ethernetif.h"
+#include "lwip/timeouts.h"
+#include "lwip/dhcp.h"
+#include "lwip/prot/dhcp.h"
+#include "shell_port.h"
 /**
  * @name ch390_get_link_status
  * @brief Get link status of the internal PHY
@@ -378,3 +382,74 @@ uint32_t ch390_receive_packet(CH390_DEVICE_T dev, uint8_t *buff, uint8_t *rx_sta
     return rx_len;
 }
 
+
+/**
+ * @name ch390_print_info
+ * @brief Read and print chip's ID and MAC address
+ */
+void ch390_print_info(CH390_DEVICE_T dev)
+{
+  uint8_t i;
+  uint8_t mac_addr[6];
+  uint16_t vid = ch390_get_vendor_id(dev);
+  uint16_t pid = ch390_get_product_id(dev);
+  xprintf("\r\nID: %04x%04x\r\n", vid, pid);
+
+  ch390_get_mac(CH390_DEVICE_1, mac_addr);
+  xprintf("\r\nMAC: ");
+  for (i = 0; i < 6; i++)
+  {
+      xprintf("%02X ", mac_addr[i]);
+  }
+  xprintf("\r\n");
+}
+
+
+/**
+ * @name ch390_int_handler
+ * @brief Handle CH390 interrupt events, include packet receive
+ */
+void ch390_int_handler(CH390_DEVICE_T dev)
+{
+  uint8_t int_status = ch390_get_int_status(dev);
+  // Link status changed
+  if (int_status & ISR_LNKCHG)
+  {
+    HAL_Delay(65);
+    if (ch390_get_link_status(dev))
+    {
+        xprintf("netif link up\r\n");
+        //shellWriteString(&shell, "netif link up\r\n");
+        netif_set_link_up(&ch390_netif);
+    }
+    else
+    {
+        xprintf("netif link down\r\n");
+        //shellWriteString(&shell, "netif link down\r\n");
+        netif_set_link_down(&ch390_netif);
+    }
+    ch390_write_reg(dev, CH390_ISR, ISR_LNKCHG);
+  }
+  // Receive overflow
+  if (int_status & ISR_ROS)
+  {
+      xprintf("Receive overflow\r\n");
+      //shellWriteString(&shell, "Receive overflow\r\n");
+      struct ethernetif *ethernetif = ch390_netif.state;
+      do {
+          ethernetif_input(&ch390_netif);
+      } while (ethernetif->rx_len != 0);
+  }
+  // Receive overflow counter overflow
+  if (int_status & ISR_ROO) xprintf("Overflow counter overflow\r\n");
+  // Packet transmitted
+  //    if(int_status & ISR_PT) printf("Packet sent\r\n");
+  // Packet received
+  if (int_status & ISR_PR)
+  {
+      struct ethernetif *ethernetif = ch390_netif.state;
+      do {
+          ethernetif_input(&ch390_netif);
+      } while (ethernetif->rx_len != 0);
+  }
+}
