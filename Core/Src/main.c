@@ -225,7 +225,12 @@ int main(void)
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
-
+  int a = 0;
+  a ++;
+  a ++;
+  a ++;
+  a ++;
+  a ++;
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */

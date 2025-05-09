@@ -1,7 +1,7 @@
 {
     "cortex-debug.liveWatchRefreshRate": 1000,
-    "cortex-debug.armToolchainPath": "",
-    "cortex-debug.openocdPath": "",
+    "cortex-debug.armToolchainPath": "/home/dog/rov/arm-none-eabi/bin",
+    "cortex-debug.openocdPath": "/usr/bin/openocd",
     "cortex-debug.variableUseNaturalFormat": true,
     "files.associations": {
         "main.h": "c",

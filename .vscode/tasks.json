@@ -3,7 +3,7 @@
         {
             "label": "rebuild stm32",
             "type": "shell",
-            "command": "make clean;make -j15",
+            "command": "make clean;make -j3",
             "args": [],
             "group": "build",
             "problemMatcher": [
@@ -25,7 +25,7 @@
         {
             "label": "build stm32",
             "type": "shell",
-            "command": "make -j15",
+            "command": "make -j3",
             "args": [],
             "group": "build",
             "problemMatcher": [

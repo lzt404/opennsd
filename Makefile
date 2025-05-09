@@ -14,7 +14,7 @@
 # target
 ######################################
 TARGET = jhj
-
+GCC_PATH = /home/dog/rov/arm-none-eabi/bin
 
 ######################################
 # building variables
@@ -22,7 +22,7 @@ TARGET = jhj
 # debug build?
 DEBUG = 1
 # optimization
-OPT = -Og
+OPT = -Og -O0
 
 
 #######################################
